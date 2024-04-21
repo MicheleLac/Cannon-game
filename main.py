@@ -6,7 +6,7 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.vector import Vector
 import math
-
+print("pisello")
 
 class Tank(Widget):
     cannon_angle = NumericProperty(0)
