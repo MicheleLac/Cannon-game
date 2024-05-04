@@ -1,4 +1,7 @@
-from turtle import window_width
+from tkinter import Button
+from turtle import title
+from kivy.config import Config
+Config.set('graphics', 'fullscreen', 'auto')
 from kivy.uix.label import Label 
 from kivy.app import App
 from kivy.uix.widget import Widget
@@ -8,10 +11,14 @@ from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.vector import Vector
 import math, time
-from kivy.properties import ListProperty
-from random import randint
 from kivy.uix.boxlayout import BoxLayout
 import random
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.popup import Popup
+from kivy.utils import get_color_from_hex
+from kivy.uix.button import Button
+from kivy.lang import Builder
+from kivy.uix.screenmanager import ScreenManager, Screen
 
 class Tank(Widget):
     cannon_angle = NumericProperty(0)
@@ -20,12 +27,12 @@ class Tank(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas:
-            Color(0.2, 0.2, 0.9)
-            self.rect = Rectangle(pos=self.pos, size=self.size)
+            Color(1, 1, 1)
+            self.rect = Rectangle(pos=self.pos, size=self.size, source = "base_cannolone.png" )
             self.cannon_length = 70
             self.cannon_width = 10
-            Color(0.2, 0.1, 1)
-            self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width, source="testa_cannolone.png")
+            Color(0, 0, 0)
+            self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width)
             
 
         self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
@@ -78,7 +85,7 @@ class Tank(Widget):
 
 class Bullet(Widget):
     mass = NumericProperty(0.5)
-    speed = NumericProperty(5)
+    speed = NumericProperty(0)
     time = NumericProperty(0)
     angle = NumericProperty(0)
 
@@ -86,7 +93,7 @@ class Bullet(Widget):
         super().__init__(**kwargs)
         self.size = (10, 10)
         with self.canvas:
-            Color(0.2, 0.2, 0.9)
+            Color(0, 0, 0)
             self.bullet = Ellipse(pos=self.pos)
 
         self.bind(pos=self.update_bullet_pos) #type: ignore 
@@ -100,15 +107,22 @@ class Bullet(Widget):
         self.y += self.speed * math.sin(self.angle)  -  self.mass *( self.time + 1)
         self.time += 0.5
 
+    """def increase_power(self, coefficent):
+        self.speed += coefficent"""
 
-
+def random_except(start, stop, exclude1, exclude2 ):
+    value = random.randrange(start, stop)
+    if (value > (exclude1 + 180) or value < (exclude1 - 180)) and ( value > (exclude2 + 180) or value < (exclude2 - 180)) :
+            return value
+    else:
+        return random_except(start, stop, exclude1, exclude2)
 
 class Rock(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas:
-            Color(0.2, 0.2, 0.9)
-            self.rect = Rectangle(pos=self.pos, size=self.size)
+            Color(1, 1, 1)
+            self.rect = Rectangle(pos=self.pos, size=self.size, source= "rock.png")
             
 
         self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
@@ -122,9 +136,9 @@ class Rock(Widget):
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
 
-    def move(self):
-        self.pos[0] = random.randrange(0,929)
-        self.pos[1] = random.randrange(0,300)
+    def move(self,start, finish, exclude1, exclude2):
+        self.pos[0] = random_except(start, finish, exclude1, exclude2)
+        #self.pos[1] = random.randrange(250, 500)
         
 
 
@@ -132,8 +146,8 @@ class Wormhole(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas:
-            Color(0, 0, 0)  # Change color as needed
-            self.circle = Ellipse(pos=self.pos, size=self.size)
+            Color(1, 1, 1)  # Change color as needed
+            self.circle = Ellipse(pos=self.pos, size=self.size, source = "wormhole.png")
 
         self.bind(pos=self.update_circle_pos, size=self.update_circle_size)
 
@@ -152,8 +166,8 @@ class PointsCounter(Widget):
 
         # Drawing the counter rectangle
         with self.canvas:
-            Color(0, 0, 0)
-            self.counter = Rectangle(pos=self.pos, size=self.size)
+            Color(1, 1, 1)
+            self.counter = Rectangle(pos=self.pos, size=self.size, source = "counter.png")
 
         # Initial score
         self.score_value = 0
@@ -184,6 +198,31 @@ class PointsCounter(Widget):
         self.label.text = str(self.score_value)  # Update label text with new score
 
 
+class Powerbar(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # Drawing the counter rectangle
+        with self.canvas:
+            Color(1, 1, 1)
+            self.power = Rectangle(pos=self.pos, size=self.size, source = "Freccia.png")
+        
+        
+        self.bind(size=self.update_power_size, pos= self.update_power_pos)
+    
+    def update_power_size(self, *args):
+        self.power.size = self.size
+    
+    def update_power_pos(self, *args):
+        self.power.pos = self.pos
+
+    def increase_size(self):
+        self.size[0] = self.size[0] + 8
+
+    def decrease_size(self):
+        self.size[0] = self.size[0] - 8
+
+
 class CannonGame(Widget):
     tank = ObjectProperty(None)
     rock = ObjectProperty(None)
@@ -192,13 +231,15 @@ class CannonGame(Widget):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        
+
 
         # Initialize canvas
         with self.canvas:
             Color(0.5, 0.8, 0.9)
-            self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height))
-            Color(0, 1, 0)
-            self.soil = Rectangle(pos=(0, 0), size=(Window.width, Window.height / 3))
+            self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height), source = "sky.png")
+            Color(0, 0.8, 0)
+            self.soil = Rectangle(pos=(0, 0), size=(Window.width, Window.height / 3), source = "ground.png")
 
         # Initialize tank
         self.tank = Tank()
@@ -221,7 +262,8 @@ class CannonGame(Widget):
         self.enter_wormhole = Wormhole()
         self.add_widget(self.enter_wormhole)
         self.enter_wormhole.pos = (Window.width / 2.5, Window.height / 3)
-        self.enter_wormhole.size = (80, 80)
+        self.enter_wormhole.size= (80, 80)
+        
 
         self.exit_wormhole = Wormhole()
         self.add_widget(self.exit_wormhole)
@@ -232,6 +274,16 @@ class CannonGame(Widget):
         self.add_widget(self.counter)
         self.counter.pos = (0,Window.height - self.counter.size[1])
         self.counter.size = (80, 80)
+        
+        
+        self.power = Powerbar()
+        self.power.pos = (self.counter.width + 5 ,Window.height - self.power.size[1])
+        self.power.size = (150, 50)
+        with self.canvas:
+            Color(1, 1, 1)
+            Rectangle(pos= self.power.pos, size=(500, 60), source = "energia.jpg")
+        self.add_widget(self.power)
+        
         
         # Bind keyboard and mouse events
         Window.bind(on_key_down=self.on_keyboard_down, on_key_up=self.on_keyboard_up)
@@ -246,6 +298,13 @@ class CannonGame(Widget):
         self.tank.set_cannon_angle(self.mouse)
         if 115 in self.keys_pressed:
             self.tank.shoot(self)
+        if 112 in self.keys_pressed and self.power.size[0]<=522:   #if you press p
+            self.power.increase_size()
+        if 108 in self.keys_pressed and self.power.size[0] >= 140:   #if you press l
+            self.power.decrease_size()
+
+        
+        
 
         if self.tank.y > Window.height / 3:
             self.tank.y -= 2.5
@@ -256,10 +315,12 @@ class CannonGame(Widget):
         bullets_to_remove = set()
         
         for bullet in self.bullets:
+            bullet.speed = self.power.size[0]/30
             if self.rock.collide_with_bullet(bullet):
                 bullets_to_remove.add(bullet)
-                self.rock.move()
+                self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0])
                 self.counter.score()
+                
                 
                     
             
@@ -274,6 +335,7 @@ class CannonGame(Widget):
             self.tank.pos = (self.enter_wormhole.center_x - 250, self.enter_wormhole.y )
        
         
+        
                     
         for bullet in self.bullets:
             bullet.trajectory()
@@ -283,17 +345,13 @@ class CannonGame(Widget):
         for bullet in bullets_to_remove:
             self.remove_widget(bullet)
 
-        
-
-        
-            
-
-
+      
         
 
 
     def on_keyboard_down(self, keyboard, keycode, *args):
         self.keys_pressed.add(keycode)
+
 
     def on_keyboard_up(self, keyboard, keycode, *args):
         self.keys_pressed.remove(keycode)
@@ -302,13 +360,78 @@ class CannonGame(Widget):
         self.mouse = Vector(pos)
 
 
+class MainMenuBackground(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self.update_rect, size=self.update_rect)
+        with self.canvas:
+            self.rect = Rectangle(source="sfondo.jpg", pos=self.pos, size=self.size)
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+
+
+class MainMenu(Screen):
+    def show_welcome(self, instance):
+        welcome_text = 'Hope you have fun'
+        popup = Popup(title="Welcome", content=Label(text=welcome_text), size_hint=(None, None), size=(500, 250))
+        popup.open()
+
+    def play(self, instance):
+        self.manager.current = 'cannon_game'
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.add_widget(MainMenuBackground())
+
+        button_color = get_color_from_hex("#ff0000")
+
+        welcome_button = Button(
+            text='Welcome to Cannon Game',
+            size_hint=(0.2, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.8},
+            font_size=37,
+            background_color=button_color
+        )
+
+        welcome_button.bind(on_release=self.show_welcome)
+        self.add_widget(welcome_button)
+
+        play_button = Button(
+            text='Play',
+            size_hint=(0.5, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.6},
+            font_size=37,
+            background_color=button_color
+        )
+
+        play_button.bind(on_release=self.play)
+        self.add_widget(play_button)
+
+class Game(Screen):
+     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        self.add_widget(CannonGame())
 
 class CannonApp(App):
     def build(self):
+        self.screen_manager = ScreenManager()
+
+        main_menu = MainMenu(name='main_menu')
+        cannon_game = Game(name='cannon_game')
+
+        self.screen_manager.add_widget(main_menu)
+        self.screen_manager.add_widget(cannon_game)
+       
+        
         game = CannonGame()
         Clock.schedule_interval(game.update, 1 / game.fps)
-        return game
+
+        return self.screen_manager
 
 
 if __name__ == '__main__':
     CannonApp().run()
+    
