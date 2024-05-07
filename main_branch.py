@@ -6,7 +6,7 @@ from kivy.uix.label import Label
 from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.properties import ObjectProperty, NumericProperty
-from kivy.graphics import Color, Rectangle, Line, Ellipse
+from kivy.graphics import Color, Rectangle, Line, Ellipse, Rotate
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.vector import Vector
@@ -38,6 +38,9 @@ class Tank(Widget):
         self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
         self.shoot_cooldown = 0.3  # Set initial cooldown to 2 seconds
         self.last_shot_time = 0.0  # Track the time of the last shot
+        self.laser_cooldown = 0.5 # added laser cooldown
+        self.laser_last_shot_time = 0.0  # Track the time of the last shot of laser
+
 
 
     def update_rect(self, *args):
@@ -55,7 +58,7 @@ class Tank(Widget):
                               self.center_y + self.cannon_length * math.sin(self.cannon_angle)
                               )
 
-    def collide_with_rock(self, rock):
+    def collide_with_rock(self, rock): #change collision logic
         return self.collide_widget(rock)
     
 
@@ -64,7 +67,7 @@ class Tank(Widget):
             self.x += 5
 
     def move_left(self):
-        if self.x >= 0:
+        if self.x >= 0 and not self.collide_with_rock(self.parent.rock) and self.right <= Window.width :
             self.x -= 5
 
 
@@ -79,6 +82,19 @@ class Tank(Widget):
             game.bullets.add(bullet)
             game.add_widget(bullet)
             self.last_shot_time = current_time  # Update last shot time
+
+    def shootLaser(self, game): #finish: WE NEED TO ROTATE LASER WITH CANNON 
+        current_time = time.time()
+        if current_time - self.laser_last_shot_time >= self.laser_cooldown:
+            laser = Laser(angle = self.cannon_angle)
+            #laser.velocity = Vector(1, 0).rotate(45)
+            #laser.set_rotation(self.cannon_angle)
+            laser.angle = self.cannon_angle 
+            laser.pos = [self.center_x + self.cannon_length * math.cos(laser.angle) - laser.size[0] / 2,
+                        self.center_y + self.cannon_length * math.sin(laser.angle) - laser.size[1] / 2]
+            game.bullets.add(laser)
+            game.add_widget(laser)
+            self.laser_last_shot_time = current_time  # Update last shot time
 
     
     
@@ -110,6 +126,42 @@ class Bullet(Widget):
     """def increase_power(self, coefficent):
         self.speed += coefficent"""
 
+class Laser(Widget): #do 
+    mass = NumericProperty(0.5)
+    speed = NumericProperty(1)
+    time = NumericProperty(0)
+    angle = NumericProperty(0)
+
+    def __init__(self,angle = 0, **kwargs):
+        super().__init__(**kwargs)
+        self.size = (40,10)
+
+
+        #self.angle = 90
+        with self.canvas:
+            Color(1, 0, 0) 
+            self.rotation = Rotate(angle=self.angle, origin=self.center)
+            self.angle = angle
+            self.laser = Rectangle(pos=self.pos)
+            
+
+        self.bind(pos=self.update_laser_pos)
+    
+    #def rotate(self, angle):
+    #    Rotate(angle = angle)
+
+    def update_laser_pos(self, *args):
+        self.laser.pos = self.pos
+        self.laser.size = self.size        
+
+    def trajectory(self):
+        self.x += self.speed * math.cos(self.angle)
+        self.y += self.speed * math.sin(self.angle)
+        self.time += 0.5
+    def set_rotation(self, angle):
+        self.rotation.angle = angle
+
+
 def random_except(start, stop, exclude1, exclude2 ):
     value = random.randrange(start, stop)
     if (value > (exclude1 + 180) or value < (exclude1 - 180)) and ( value > (exclude2 + 180) or value < (exclude2 - 180)) :
@@ -140,7 +192,31 @@ class Rock(Widget):
         self.pos[0] = random_except(start, finish, exclude1, exclude2)
         #self.pos[1] = random.randrange(250, 500)
         
+class Mirror(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas:
+            Color(0.68, 0.85, 0.9)
+            self.rect = Rectangle(pos=self.pos, size=(10,100))
+            self.rotation = Rotate(45)
+            
 
+        self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
+
+    def update_rect_pos(self, *args):
+        self.rect.pos = self.pos
+
+    
+    def update_rect_size(self, *args):
+        self.rect.size = self.size
+    
+    def collide_with_bullet(self, bullet):
+        return self.collide_widget(bullet)
+
+    def move(self):#should we call it "changepos" ?
+        self.pos[0] = random.randrange(0,929)
+        self.pos[1] = random.randrange(355,600)
+        
 
 class Wormhole(Widget):
     def __init__(self, **kwargs):
@@ -257,6 +333,10 @@ class CannonGame(Widget):
         self.add_widget(self.rock)
         self.rock.pos = (Window.width - self.rock.size[0], Window.height / 3)
 
+        # Initialize Mirror
+        self.mirror = Mirror()
+        self.add_widget(self.mirror)
+        self.mirror.pos= (400,400)
 
         # Initialize wormholes
         self.enter_wormhole = Wormhole()
@@ -291,9 +371,9 @@ class CannonGame(Widget):
         self.mouse = Vector(Window.mouse_pos)
 
     def update(self, dt):
-        if 275 in self.keys_pressed:
+        if 275 in self.keys_pressed: #97
             self.tank.move_right()
-        if 276 in self.keys_pressed:
+        if 276 in self.keys_pressed: #100
             self.tank.move_left()
         self.tank.set_cannon_angle(self.mouse)
         if 115 in self.keys_pressed:
@@ -302,6 +382,8 @@ class CannonGame(Widget):
             self.power.increase_size()
         if 108 in self.keys_pressed and self.power.size[0] >= 140:   #if you press l
             self.power.decrease_size()
+        if 32 in self.keys_pressed: #shoot laser (space)
+            self.tank.shootLaser(self)
 
         
         
@@ -321,7 +403,12 @@ class CannonGame(Widget):
                 self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0])
                 self.counter.score()
                 
-                
+            if self.mirror.collide_with_bullet(bullet): #if bullet is laser change angle if bullet destroy
+                if isinstance(bullet, Laser):
+                    bullet.angle = bullet.angle +180 
+                elif isinstance(bullet, Bullet):
+                    bullets_to_remove.add(bullet)
+                    self.mirror.move()
                     
             
             if self.enter_wormhole.collide_with_bullet(bullet):
@@ -350,6 +437,7 @@ class CannonGame(Widget):
 
 
     def on_keyboard_down(self, keyboard, keycode, *args):
+        print(keycode)
         self.keys_pressed.add(keycode)
 
 
@@ -429,7 +517,7 @@ class CannonApp(App):
         game = CannonGame()
         Clock.schedule_interval(game.update, 1 / game.fps)
 
-        return self.screen_manager
+        return game
 
 
 if __name__ == '__main__':
