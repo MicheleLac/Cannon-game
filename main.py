@@ -1,3 +1,4 @@
+from ast import Num
 from tkinter import Button
 from turtle import title
 from kivy.config import Config
@@ -6,7 +7,7 @@ from kivy.uix.label import Label
 from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.properties import ObjectProperty, NumericProperty
-from kivy.graphics import Color, Rectangle, Line, Ellipse
+from kivy.graphics import Color, Rectangle, Line, Ellipse, Rotate, PushMatrix, PopMatrix
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.vector import Vector
@@ -20,12 +21,15 @@ from kivy.uix.button import Button
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
 
+
 class Tank(Widget):
     cannon_angle = NumericProperty(0)
 
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        
+        
         with self.canvas:
             Color(1, 1, 1)
             self.rect = Rectangle(pos=self.pos, size=self.size, source = "base_cannolone.png" )
@@ -45,15 +49,22 @@ class Tank(Widget):
         self.rect.size = self.size
         self.cannon.points = (self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y)
 
+    
     def set_cannon_angle(self, mouse_pos):
         dx = mouse_pos[0] - self.center_x #This line calculates the horizontal distance between the mouse position and the center of the tank.
         dy = mouse_pos[1] - self.center_y #This line calculates the vertical distance between the mouse position and the center of the tank.
         self.cannon_angle = math.atan2(dy, dx)
+        
 
         self.cannon.points = (self.center_x, self.center_y,
                               self.center_x + self.cannon_length * math.cos(self.cannon_angle),
                               self.center_y + self.cannon_length * math.sin(self.cannon_angle)
                               )
+        return self.cannon_angle
+    
+     
+     
+
 
     def collide_with_rock(self, rock):
         return self.collide_widget(rock)
@@ -80,7 +91,18 @@ class Tank(Widget):
             game.add_widget(bullet)
             self.last_shot_time = current_time  # Update last shot time
 
-    
+    def shootLaser(self, game):
+        current_time = time.time()
+        if current_time - self.last_shot_time >= self.shoot_cooldown:
+            laser = Laser()
+            laser.angle = math.degrees(self.cannon_angle)
+            laser.pos = [self.center_x + self.cannon_length * math.cos(self.cannon_angle) - laser.size[0] / 2,
+                          self.center_y + self.cannon_length * math.sin(self.cannon_angle) - laser.size[1] / 2]
+            game.bullets.add(laser)
+        
+            game.add_widget(laser)
+            self.last_shot_time = current_time  # Update last shot time
+
     
 
 class Bullet(Widget):
@@ -106,6 +128,7 @@ class Bullet(Widget):
         self.x += self.speed * math.cos(self.angle) 
         self.y += self.speed * math.sin(self.angle)  -  self.mass *( self.time + 1)
         self.time += 0.5
+        return self.angle
 
     """def increase_power(self, coefficent):
         self.speed += coefficent"""
@@ -222,6 +245,70 @@ class Powerbar(Widget):
     def decrease_size(self):
         self.size[0] = self.size[0] - 8
 
+class Laser(Widget):
+    mass = NumericProperty(0.5)
+    speed = NumericProperty(0)
+    time = NumericProperty(0)
+    angle = NumericProperty(0)
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.size = (40, 10)
+        
+        
+        with self.canvas:
+            PushMatrix()
+            self.rotation = Rotate(angle=self.angle, origin=self.center)
+            self.laser = Rectangle(pos=self.pos, size=self.size)
+            PopMatrix()
+
+        self.bind(pos=self.update_laser_pos)  
+
+        
+
+    def update_laser_pos(self, *args):
+        self.rotation.origin = self.center
+        self.rotation.angle = self.angle
+        self.laser.pos = self.pos
+        self.laser.size = self.size
+
+    
+    
+
+    def trajectory(self):
+        self.x += self.speed  *math.cos(math.radians(self.angle)) 
+        self.y += self.speed  *math.sin(math.radians(self.angle)) 
+        self.time += 0.5
+        
+
+class Mirror(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas:
+            Color(0.68, 0.85, 0.9)
+            self.rect = Rectangle(pos=self.pos, size=(10,100))
+            self.rotation = Rotate(45)
+            
+
+        self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
+
+    def update_rect_pos(self, *args):
+        self.rect.pos = self.pos
+
+    
+    def update_rect_size(self, *args):
+        self.rect.size = self.size
+    
+    def collide_with_bullet(self, bullet):
+        return self.collide_widget(bullet)
+
+    def move(self):#should we call it "changepos" ?
+        self.pos[0] = random.randrange(0,929)
+        self.pos[1] = random.randrange(355,600)
+
+
+
+
 
 class CannonGame(Widget):
     tank = ObjectProperty(None)
@@ -250,6 +337,7 @@ class CannonGame(Widget):
 
         self.keys_pressed = set()
         self.bullets = set()
+        self.lasers = set()
 
         # Initialize rock
         self.rock = Rock()
@@ -275,7 +363,13 @@ class CannonGame(Widget):
         self.counter.pos = (0,Window.height - self.counter.size[1])
         self.counter.size = (80, 80)
         
-        
+        # Initialize Mirror
+        self.mirror = Mirror()
+        self.add_widget(self.mirror)
+        self.mirror.pos= (400,400)
+
+       
+
         self.power = Powerbar()
         self.power.pos = (self.counter.width + 5 ,Window.height - self.power.size[1])
         self.power.size = (150, 50)
@@ -285,25 +379,33 @@ class CannonGame(Widget):
         self.add_widget(self.power)
         
         
+
         # Bind keyboard and mouse events
         Window.bind(on_key_down=self.on_keyboard_down, on_key_up=self.on_keyboard_up)
         Window.bind(mouse_pos=self.on_mouse_move)
         self.mouse = Vector(Window.mouse_pos)
 
     def update(self, dt):
+        angle = self.tank.set_cannon_angle(self.mouse)
+        Laser.angle = math.degrees(angle)
+        
         if 275 in self.keys_pressed:
             self.tank.move_right()
         if 276 in self.keys_pressed:
             self.tank.move_left()
         self.tank.set_cannon_angle(self.mouse)
+        
         if 115 in self.keys_pressed:
             self.tank.shoot(self)
         if 112 in self.keys_pressed and self.power.size[0]<=522:   #if you press p
             self.power.increase_size()
         if 108 in self.keys_pressed and self.power.size[0] >= 140:   #if you press l
             self.power.decrease_size()
+        if 32 in self.keys_pressed:
+            
+            self.tank.shootLaser(self)
 
-        
+          
         
 
         if self.tank.y > Window.height / 3:
@@ -321,7 +423,14 @@ class CannonGame(Widget):
                 self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0])
                 self.counter.score()
                 
-                
+            if self.mirror.collide_with_bullet(bullet): #if bullet is laser change angle if bullet destroy
+                if isinstance(bullet, Laser):
+                    
+                    bullet.angle = bullet.angle +180 - 2* bullet.angle
+
+                elif isinstance(bullet, Bullet):
+                    bullets_to_remove.add(bullet)
+                    self.mirror.move()
                     
             
             if self.enter_wormhole.collide_with_bullet(bullet):
@@ -339,6 +448,8 @@ class CannonGame(Widget):
                     
         for bullet in self.bullets:
             bullet.trajectory()
+        
+        
 
 
         # Remove collided bullets
@@ -365,7 +476,7 @@ class MainMenuBackground(Widget):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source="sfondo.jpg", pos=self.pos, size=self.size)
+            self.rect = Rectangle(source="egit.png", pos=self.pos, size=self.size)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
@@ -389,7 +500,7 @@ class MainMenu(Screen):
 
         welcome_button = Button(
             text='Welcome to Cannon Game',
-            size_hint=(0.2, 0.2),
+            size_hint=(0.5, 0.2),
             pos_hint={'center_x': 0.5, 'center_y': 0.8},
             font_size=37,
             background_color=button_color
@@ -409,27 +520,25 @@ class MainMenu(Screen):
         play_button.bind(on_release=self.play)
         self.add_widget(play_button)
 
-class Game(Screen):
-     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        
-        self.add_widget(CannonGame())
 
 class CannonApp(App):
     def build(self):
         self.screen_manager = ScreenManager()
 
         main_menu = MainMenu(name='main_menu')
-        cannon_game = Game(name='cannon_game')
+        game_screen = Screen(name='cannon_game')
+        cannon_game = CannonGame()
 
+        game_screen.add_widget(cannon_game)
         self.screen_manager.add_widget(main_menu)
-        self.screen_manager.add_widget(cannon_game)
-       
-        
-        game = CannonGame()
-        Clock.schedule_interval(game.update, 1 / game.fps)
+        self.screen_manager.add_widget(game_screen)
+
+        # Schedule the update method of the CannonGame instance added to the game_screen
+        Clock.schedule_interval(cannon_game.update, 1 / cannon_game.fps)
 
         return self.screen_manager
+
+
 
 
 if __name__ == '__main__':
