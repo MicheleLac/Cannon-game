@@ -2,6 +2,7 @@ from ast import Num
 from tkinter import Button
 from turtle import title
 from kivy.config import Config
+from numpy import delete
 Config.set('graphics', 'fullscreen', 'auto')
 from kivy.uix.label import Label 
 from kivy.app import App
@@ -133,12 +134,12 @@ class Bullet(Widget):
     """def increase_power(self, coefficent):
         self.speed += coefficent"""
 
-def random_except(start, stop, exclude1, exclude2 ):
+def random_except(start, stop, exclude1, exclude2, exclude3):
     value = random.randrange(start, stop)
-    if (value > (exclude1 + 180) or value < (exclude1 - 180)) and ( value > (exclude2 + 180) or value < (exclude2 - 180)) :
+    if (value > (exclude1 + 180) or value < (exclude1 - 180)) and ( value > (exclude2 + 180) or value < (exclude2 - 180)) and ( value > (exclude3 + 180) or value < (exclude3 - 180)):
             return value
     else:
-        return random_except(start, stop, exclude1, exclude2)
+        return random_except(start, stop, exclude1, exclude2, exclude3)
 
 class Rock(Widget):
     def __init__(self, **kwargs):
@@ -159,11 +160,46 @@ class Rock(Widget):
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
 
-    def move(self,start, finish, exclude1, exclude2):
-        self.pos[0] = random_except(start, finish, exclude1, exclude2)
+    def move(self,start, finish, exclude1, exclude2, exclude3):
+        self.pos[0] = random_except(start, finish, exclude1, exclude2, exclude3)
         #self.pos[1] = random.randrange(250, 500)
+    
+    
+    def pieces(self):
+        
+        with self.canvas:
+            Color(1, 1, 1)
+            self.piece1 = Rectangle(pos=self.pos, size=(20,20), source= "rock.png")
         
 
+        with self.canvas:
+            Color(1, 1, 1)
+            self.piece2 = Rectangle(pos=(self.pos[0]+20, self.pos[1]), size=(20,20), source= "rock.png")
+        
+
+        with self.canvas:
+            Color(1, 1, 1)
+            self.piece3 = Rectangle(pos=(self.pos[0]-20, self.pos[1]), size=(20,20), source= "rock.png")
+        
+        
+        Clock.schedule_interval(self.remove_pieces, 3)
+        # Schedule the removal of smaller rocks after 5 seconds
+        
+            
+    def remove_pieces(self, dt):
+        self.piece1.pos = (50000,50000)
+        self.piece2.pos = (50000,50000)
+        self.piece3.pos = (50000,50000)
+
+
+
+
+
+            
+        
+        
+
+    
 
 class Wormhole(Widget):
     def __init__(self, **kwargs):
@@ -338,6 +374,8 @@ class CannonGame(Widget):
         self.keys_pressed = set()
         self.bullets = set()
         self.lasers = set()
+        self.pezzi = set()
+
 
         # Initialize rock
         self.rock = Rock()
@@ -386,6 +424,7 @@ class CannonGame(Widget):
         self.mouse = Vector(Window.mouse_pos)
 
     def update(self, dt):
+        
         angle = self.tank.set_cannon_angle(self.mouse)
         Laser.angle = math.degrees(angle)
         
@@ -405,7 +444,6 @@ class CannonGame(Widget):
             
             self.tank.shootLaser(self)
 
-          
         
 
         if self.tank.y > Window.height / 3:
@@ -416,16 +454,22 @@ class CannonGame(Widget):
         # Check collision between the rock and the bullets
         bullets_to_remove = set()
         
+
+        
+
         for bullet in self.bullets:
             bullet.speed = self.power.size[0]/30
             if self.rock.collide_with_bullet(bullet):
                 bullets_to_remove.add(bullet)
-                self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0])
-                self.counter.score()
+                self.rock.pieces()
                 
+                self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0], self.rock.size[0] )
+                self.counter.score()
+
+            
+
             if self.mirror.collide_with_bullet(bullet): #if bullet is laser change angle if bullet destroy
                 if isinstance(bullet, Laser):
-                    
                     bullet.angle = bullet.angle +180 - 2* bullet.angle
 
                 elif isinstance(bullet, Bullet):
@@ -437,6 +481,10 @@ class CannonGame(Widget):
                 bullet.pos = self.exit_wormhole.center
             
         
+        
+                
+
+
         if self.enter_wormhole.collide_with_bullet(self.tank): 
             self.tank.pos = (self.exit_wormhole.center_x - 250, self.exit_wormhole.center_y )
         
