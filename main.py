@@ -478,7 +478,7 @@ class CannonGame(Widget):
         # Initialize tank
         self.tank = Tank()
         self.tank.size_hint = (None, None)
-        self.tank.pos = (0, 0)
+        self.tank.pos = (0, 150)
         self.tank.size = (190, 80)
         self.add_widget(self.tank)
 
@@ -499,7 +499,7 @@ class CannonGame(Widget):
         self.rock = Rock()
         self.rock.size = (70, 70)
         self.add_widget(self.rock)
-        self.rock.pos = (Window.width - self.rock.size[0], Window.height / 3)
+        self.rock.pos = (Window.width/2 +100, Window.height / 3)
 
 
         # Initialize wormholes
@@ -564,15 +564,12 @@ class CannonGame(Widget):
 
         
         #kind of gravity
-        if self.tank.y > 0:
-            self.tank.y -= 2.5
-        else:
-            self.tank.y = 0
+       
 
-        """if self.tank.y > Window.height / 3:
+        if self.tank.y > 150:
             self.tank.y -= 2.5
         else:
-            self.tank.y = Window.height / 3"""
+            self.tank.y = 150
         
         # Check collision between the rock and the bullets
         bullets_to_remove = set()
