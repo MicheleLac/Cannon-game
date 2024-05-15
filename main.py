@@ -1,6 +1,6 @@
 from ast import Num
 from tkinter import Button
-from turtle import title
+from turtle import title, width
 from kivy.config import Config
 from numpy import delete
 Config.set('graphics', 'fullscreen', 'auto')
@@ -105,6 +105,105 @@ class Tank(Widget):
             self.last_shot_time = current_time  # Update last shot time
 
     
+
+class Enemy(Widget):
+    cannon_angle = NumericProperty(0)
+
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        
+        with self.canvas:
+            Color(1, 1, 1)
+            self.rect = Rectangle(pos=self.pos, size=self.size, source = "base_cannolone.png" )
+            self.cannon_length = 70
+            self.cannon_width = 10
+            Color(0, 0, 0)
+            self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width)
+            
+
+        self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
+        self.shoot_cooldown = 0.3  # Set initial cooldown to 2 seconds
+        self.last_shot_time = 0.0  # Track the time of the last shot
+        self.last_angle_change_time = 0  # Initialize the time of the last angle change
+        self.cooldown_duration = 3.5  # 5 seconds cooldown
+
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+        self.cannon.points = (self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y)
+
+    
+    
+
+    def set_cannon_angle(self):
+        current_time = time.time()
+        if current_time - self.last_angle_change_time >= self.cooldown_duration:
+            dx = random.randrange(-5000, 1000, 80) - self.center_x
+            dy = random.randrange(-5000, 1000, 80) - self.center_y
+            self.cannon_angle = math.atan2(dy, dx)
+
+            self.last_angle_change_time = current_time  # Update the time of the last angle change
+
+            self.cannon.points = (self.center_x, self.center_y,
+                                  self.center_x + self.cannon_length * math.cos(self.cannon_angle),
+                                  self.center_y + self.cannon_length * math.sin(self.cannon_angle)
+                                  )
+
+            return self.cannon_angle
+    
+     
+     
+
+
+    def collide_with_rock(self, rock):
+        return self.collide_widget(rock)
+    
+
+    def move_right(self):
+        if not self.collide_with_rock(self.parent.rock) and self.right <= Window.width:
+            self.x += 5
+
+    def move_left(self):
+        if self.x >= 0:
+            self.x -= 5
+
+
+
+    def shoot(self, game):
+        current_time = time.time()
+        if current_time - self.last_shot_time >= self.shoot_cooldown:
+            bullet = Bullet()
+            bullet.angle = self.cannon_angle
+            bullet.pos = [self.center_x + self.cannon_length * math.cos(bullet.angle) - bullet.size[0] / 2,
+                          self.center_y + self.cannon_length * math.sin(bullet.angle) - bullet.size[1] / 2]
+            game.bullets.add(bullet)
+            game.add_widget(bullet)
+            self.last_shot_time = current_time  # Update last shot time
+
+    def shootLaser(self, game):
+        current_time = time.time()
+        if current_time - self.last_shot_time >= self.shoot_cooldown:
+            laser = Laser()
+            laser.angle = math.degrees(self.cannon_angle)
+            laser.pos = [self.center_x + self.cannon_length * math.cos(self.cannon_angle) - laser.size[0] / 2,
+                          self.center_y + self.cannon_length * math.sin(self.cannon_angle) - laser.size[1] / 2]
+            game.bullets.add(laser)
+        
+            game.add_widget(laser)
+            self.last_shot_time = current_time  # Update last shot time
+
+
+
+
+
+
+
+
+
+
 
 class Bullet(Widget):
     mass = NumericProperty(0.5)
@@ -322,21 +421,33 @@ class Mirror(Widget):
         super().__init__(**kwargs)
         with self.canvas:
             Color(0.68, 0.85, 0.9)
-            self.rect = Rectangle(pos=self.pos, size=(10,100))
-            self.rotation = Rotate(45)
+            PushMatrix()
+            self.rotation = Rotate(angle=0, origin=self.center)
+            self.mir = Rectangle(pos=self.pos, size=(10,100))
+            PopMatrix()
             
 
-        self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
+        self.bind(pos=self.update_mir_pos, size=self.update_mir_size)
 
-    def update_rect_pos(self, *args):
-        self.rect.pos = self.pos
+    def update_mir_pos(self, *args):
+        self.mir.pos = self.pos
+        self.rotation.origin = self.center
 
     
-    def update_rect_size(self, *args):
-        self.rect.size = self.size
+    def update_mir_size(self, *args):
+        self.mir.size = self.size
     
     def collide_with_bullet(self, bullet):
-        return self.collide_widget(bullet)
+            return self.collide_widget(bullet)
+        
+        
+        
+        
+        
+        
+        
+        
+
 
     def move(self):#should we call it "changepos" ?
         self.pos[0] = random.randrange(0,929)
@@ -359,17 +470,24 @@ class CannonGame(Widget):
 
         # Initialize canvas
         with self.canvas:
-            Color(0.5, 0.8, 0.9)
-            self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height), source = "sky.png")
-            Color(0, 0.8, 0)
-            self.soil = Rectangle(pos=(0, 0), size=(Window.width, Window.height / 3), source = "ground.png")
+            Color(1, 1, 1)
+            self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height), source = "gioco2.jpg")
+            #Color(1, 1, 1)
+            #self.soil = Rectangle(pos=(0, 0), size=(Window.width, Window.height / 3), source = "ground.png")
 
         # Initialize tank
         self.tank = Tank()
         self.tank.size_hint = (None, None)
-        self.tank.pos = (0, Window.height / 3)
-        self.tank.size = (150, 60)
+        self.tank.pos = (0, 0)
+        self.tank.size = (190, 80)
         self.add_widget(self.tank)
+
+        self.enemy = Enemy()
+        self.enemy.size_hint = (None, None)
+        self.enemy.pos = (Window.width - self.enemy.size[0]*2, Window.height / 3)
+        self.enemy.size = (190, 80)
+        self.add_widget(self.enemy)
+
 
         self.keys_pressed = set()
         self.bullets = set()
@@ -404,7 +522,7 @@ class CannonGame(Widget):
         # Initialize Mirror
         self.mirror = Mirror()
         self.add_widget(self.mirror)
-        self.mirror.pos= (400,400)
+        self.mirror.pos= (800,500)
 
        
 
@@ -445,17 +563,25 @@ class CannonGame(Widget):
             self.tank.shootLaser(self)
 
         
-
-        if self.tank.y > Window.height / 3:
+        #kind of gravity
+        if self.tank.y > 0:
             self.tank.y -= 2.5
         else:
-            self.tank.y = Window.height / 3
+            self.tank.y = 0
+
+        """if self.tank.y > Window.height / 3:
+            self.tank.y -= 2.5
+        else:
+            self.tank.y = Window.height / 3"""
         
         # Check collision between the rock and the bullets
         bullets_to_remove = set()
         
-
         
+        self.enemy.set_cannon_angle()
+        
+        #Clock.schedule_interval(self.enemy.shoot, 5)
+
 
         for bullet in self.bullets:
             bullet.speed = self.power.size[0]/30
@@ -471,6 +597,7 @@ class CannonGame(Widget):
             if self.mirror.collide_with_bullet(bullet): #if bullet is laser change angle if bullet destroy
                 if isinstance(bullet, Laser):
                     bullet.angle = bullet.angle +180 - 2* bullet.angle
+                    
 
                 elif isinstance(bullet, Bullet):
                     bullets_to_remove.add(bullet)
@@ -524,7 +651,7 @@ class MainMenuBackground(Widget):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source="egit.png", pos=self.pos, size=self.size)
+            self.rect = Rectangle(source="sfond.jpg", pos=self.pos, size=self.size)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
@@ -539,16 +666,22 @@ class MainMenu(Screen):
 
     def play(self, instance):
         self.manager.current = 'cannon_game'
+    
+    def stop(self, instance):
+        CannonApp().stop()
+
+    def GoToLevels(self, instance):
+        self.manager.current = 'levels'
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.add_widget(MainMenuBackground())
 
-        button_color = get_color_from_hex("#ff0000")
+        button_color = (0,0,0,0.8)
 
         welcome_button = Button(
-            text='Welcome to Cannon Game',
-            size_hint=(0.5, 0.2),
+            text='Welcome',
+            size_hint=(0.2, 0.2),
             pos_hint={'center_x': 0.5, 'center_y': 0.8},
             font_size=37,
             background_color=button_color
@@ -559,7 +692,7 @@ class MainMenu(Screen):
 
         play_button = Button(
             text='Play',
-            size_hint=(0.5, 0.2),
+            size_hint=(0.2, 0.2),
             pos_hint={'center_x': 0.5, 'center_y': 0.6},
             font_size=37,
             background_color=button_color
@@ -567,6 +700,72 @@ class MainMenu(Screen):
 
         play_button.bind(on_release=self.play)
         self.add_widget(play_button)
+
+        levels_button = Button(
+            text='Levels',
+            size_hint=(0.2, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.4},
+            font_size=37,
+            background_color=button_color
+        )
+
+        levels_button.bind(on_release=self.GoToLevels)
+        self.add_widget(levels_button)
+
+
+        exit_button = Button(
+            text='Exit',
+            size_hint=(0.2, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.2},
+            font_size=37,
+            background_color=button_color
+        )
+
+        exit_button.bind(on_release=self.stop)
+        self.add_widget(exit_button)
+
+class Levels(Screen):
+    
+    def play(self, instance):
+        self.manager.current = 'cannon_game'
+
+    def GoMainMENU(self, instance):
+        self.manager.current = 'main_menu'
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self.update_rect, size=self.update_rect)
+        with self.canvas:
+            self.rect = Rectangle(source="levels.jpg", pos=self.pos, size=self.size)
+
+        button_color = (0,0,0,0.8)
+
+        first_level = Button(
+            text='1',
+            size_hint=(0.3, 0.2),
+            pos_hint={'center_x': 0.2, 'center_y': 0.7},
+            font_size=37,
+            background_color=button_color
+        )
+
+        first_level.bind(on_release=self.play)
+        self.add_widget(first_level)
+
+        back_button = Button(
+            text='Back',
+            size_hint=(0.3, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.7},
+            font_size=37,
+            background_color=button_color
+        )
+
+        back_button.bind(on_release=self.GoMainMENU)
+        self.add_widget(back_button)
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+
 
 
 class CannonApp(App):
@@ -576,9 +775,11 @@ class CannonApp(App):
         main_menu = MainMenu(name='main_menu')
         game_screen = Screen(name='cannon_game')
         cannon_game = CannonGame()
+        levels = Levels(name = 'levels')
 
         game_screen.add_widget(cannon_game)
         self.screen_manager.add_widget(main_menu)
+        self.screen_manager.add_widget(levels)
         self.screen_manager.add_widget(game_screen)
 
         # Schedule the update method of the CannonGame instance added to the game_screen
@@ -586,7 +787,7 @@ class CannonApp(App):
 
         return self.screen_manager
 
-
+    
 
 
 if __name__ == '__main__':
