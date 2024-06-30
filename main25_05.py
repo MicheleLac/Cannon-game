@@ -3,7 +3,10 @@ from tkinter import Button
 from turtle import title, width
 from kivy.config import Config
 
+from matplotlib import use
 from numpy import delete
+from sklearn.linear_model import enet_path
+from zmq import has
 Config.set('graphics', 'fullscreen', 'auto')
 from kivy.uix.label import Label 
 from kivy.app import App
@@ -16,10 +19,11 @@ from kivy.vector import Vector
 import math, time
 from kivy.uix.boxlayout import BoxLayout
 import random
-from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.popup import Popup
 from kivy.utils import get_color_from_hex
 from kivy.uix.button import Button
+from kivy.uix.textinput import TextInput
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
 from functools import partial
@@ -33,17 +37,17 @@ class Tank(Widget):
         super().__init__(**kwargs)
         
         
-        with self.canvas:
+        with self.canvas: #type: ignore
             Color(1, 1, 1)
-            self.rect = Rectangle(pos=self.pos, size=self.size, source = "base_cannolone.png" )
-            self.cannon_length = 70
+            self.rect = Rectangle(pos=self.pos, size=self.size, source = "spaceship.png" )
+            self.cannon_length = 110
             self.cannon_width = 10
-            Color(0, 0, 0)
+            Color(0.169, 0.169, 0.169)
             self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width)
             self.size = self.rect.size
 
         self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
-        self.shoot_cooldown = 0.3  # Set initial cooldown to 2 seconds
+        self.laser_shoot_cooldown = 2  # Set initial cooldown to 2 seconds
         self.last_shot_time = 0.0  # Track the time of the last shot
         self.num_col =0
         self.has_collided= False
@@ -58,6 +62,7 @@ class Tank(Widget):
         dx = mouse_pos[0] - self.center_x #This line calculates the horizontal distance between the mouse position and the center of the tank.
         dy = mouse_pos[1] - self.center_y #This line calculates the vertical distance between the mouse position and the center of the tank.
         self.cannon_angle = math.atan2(dy, dx)
+        
         
 
         self.cannon.points = (self.center_x, self.center_y,
@@ -74,12 +79,15 @@ class Tank(Widget):
         return self.collide_widget(rock)
     
     def collide_with_bullet(self, bullet):
-        self.has_collided = True 
-        return self.collide_widget(bullet)
+        if screen_manager.current == 'main_menu' or screen_manager.current == 'levels' or screen_manager.current == 'game_win' :  #type: ignore
+            return False 
+        else:
+            self.has_collided = True 
+            return self.collide_widget(bullet)
 
 
     def move_right(self):
-        if not self.collide_with_rock(self.parent.rock) and self.right <= Window.width:
+        if self.right <= Window.width:
             self.x += 5
 
     def move_left(self):
@@ -88,10 +96,11 @@ class Tank(Widget):
 
 
 
+
     def shoot(self, game):
-        self.shoot_cooldown = 0.3
+        self.bullet_shoot_cooldown = 0.3
         current_time = time.time()
-        if current_time - self.last_shot_time >= self.shoot_cooldown:
+        if current_time - self.last_shot_time >= self.bullet_shoot_cooldown:
             bullet = Bullet()
             bullet.angle = self.cannon_angle
             bullet.pos = [self.center_x + self.cannon_length * math.cos(bullet.angle) - bullet.size[0] / 2,
@@ -101,9 +110,9 @@ class Tank(Widget):
             self.last_shot_time = current_time  # Update last shot time
 
     def shootLaser(self, game):
-        self.shoot_cooldown = 0.7
+        #self.shoot_cooldown = 0.3
         current_time = time.time()
-        if current_time - self.last_shot_time >= self.shoot_cooldown:
+        if current_time - self.last_shot_time >= self.laser_shoot_cooldown:
             laser = Laser()
             laser.angle = math.degrees(self.cannon_angle)
             laser.pos = [self.center_x + self.cannon_length * math.cos(self.cannon_angle) - laser.size[0] / 2,
@@ -118,7 +127,7 @@ class Tank(Widget):
         if current_time - self.last_shot_time >= self.shoot_cooldown:
             bombshell = Bombshell()
             bombshell.angle = self.cannon_angle
-            bombshell.pos = [self.center_x + self.cannon_length * math.cos(bombshell.angle) - bombshell.size[0] / 2,
+            bombshell.pos = [self.center_x + self.cannon_length * math.cos(bombshell.angle) - bombshell.size[0] / 2,  #type: ignore
                             self.center_y + self.cannon_length * math.sin(bombshell.angle) - bombshell.size[1] / 2]
             game.bullets.add(bombshell)
             game.add_widget(bombshell)
@@ -137,6 +146,7 @@ def counter(fn):
 
 class Enemy(Widget):
     cannon_angle = NumericProperty(0)
+    direction = NumericProperty(1)  # 1 for right, -1 for left
 
 
     def __init__(self, **kwargs):
@@ -145,42 +155,52 @@ class Enemy(Widget):
         
         with self.canvas:
             Color(1, 1, 1)
-            self.rect = Rectangle(pos=self.pos, size=self.size, source = "base_cannolone.png" )
+            self.rect = Rectangle(pos=self.pos, size=self.size, source = "enemyship.png" )
             self.cannon_length = 70
             self.cannon_width = 10
-            Color(0, 0, 0)
+            #Color(0.169, 0.1, 0.169)
+            Color(0,0,0,0)
             self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width)
             
 
         self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
-        self.shoot_cooldown = 1  # Set initial cooldown to 2 seconds
+        self.shoot_cooldown = 2  # Set initial cooldown to 2 seconds
         self.last_shot_time = 0.0  # Track the time of the last shot
         self.last_angle_change_time = 0  # Initialize the time of the last angle change
         self.cooldown_duration = 1  # 5 seconds cooldown
-
+        self.has_collided= False
+        Clock.schedule_interval(self.move, 1 / 60.)  # 60 times per second
+        Clock.schedule_interval(self.change_direction, 1)  # Change direction every second
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
         self.cannon.points = (self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y)
+        
 
-    
-    def move_right(self):
-        if not self.collide_with_rock(self.parent.rock) and self.right <= Window.width:
-            self.x += 5
+    def move(self, dt):
+        # Move right or left based on the direction property
+        self.x += self.direction * 5
+        # Check for screen boundaries and reset position if necessary
+        if self.x <= 0:
+            self.x = 0
+            self.direction = 1
+        elif self.x + self.width >= self.parent.width:
+            self.x = self.parent.width - self.width
+            self.direction = -1
 
-    def move_left(self):
-        if self.x >= 0:
-            self.x -= 5
+    def change_direction(self, dt):
+        # Randomly change direction
+        self.direction = random.choice([-1, 1])
+
+
+            
+
 
     def set_cannon_angle(self):
-        current_time = time.time()
-        if current_time - self.last_angle_change_time >= self.cooldown_duration:
-            dx = random.randrange(0, 10)
-            dy = random.randrange(0, 10) 
-            self.cannon_angle = math.degrees(math.atan2(dy, dx))
-
-            self.last_angle_change_time = current_time  # Update the time of the last angle change
+            dx = -2.5
+            dy = -172.5
+            self.cannon_angle = math.atan2(dy, dx)
 
             self.cannon.points = (self.center_x, self.center_y,
                                   self.center_x + self.cannon_length * math.cos(self.cannon_angle),
@@ -193,8 +213,9 @@ class Enemy(Widget):
      
 
 
-    def collide_with_rock(self, rock):
-        return self.collide_widget(rock)
+    def collide_with_bullet(self, bullet):
+        self.has_collided = True 
+        return self.collide_widget(bullet)
 
 
 
@@ -252,7 +273,7 @@ class Bullet(Widget):
         super().__init__(**kwargs)
         self.size = (10, 10)
         with self.canvas:
-            Color(0, 0, 0)
+            Color(1,0.6,0.4)
             self.bullet = Ellipse(pos=self.pos)
 
         self.bind(pos=self.update_bullet_pos) #type: ignore 
@@ -306,31 +327,8 @@ class Rock(Widget):
         #self.pos[1] = random.randrange(250, 500)
     
     
-    def pieces(self):
-        
-        with self.canvas:
-            Color(1, 1, 1)
-            self.piece1 = Rectangle(pos=self.pos, size=(20,20), source= "rock.png")
-        
-
-        with self.canvas:
-            Color(1, 1, 1)
-            self.piece2 = Rectangle(pos=(self.pos[0]+20, self.pos[1]), size=(20,20), source= "rock.png")
-        
-
-        with self.canvas:
-            Color(1, 1, 1)
-            self.piece3 = Rectangle(pos=(self.pos[0]-20, self.pos[1]), size=(20,20), source= "rock.png")
-        
-        
-        Clock.schedule_interval(self.remove_pieces, 2)
-        # Schedule the removal of smaller rocks after 5 seconds
-        
-            
-    def remove_pieces(self, dt):
-        self.piece1.pos = (50000,50000)
-        self.piece2.pos = (50000,50000)
-        self.piece3.pos = (50000,50000)
+    
+    
 
 class Coin(Widget):
     def __init__(self, **kwargs):
@@ -351,16 +349,16 @@ class Coin(Widget):
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
 
-    def move(self):
-        self.pos[0] = random.randint(0, Window.width)
-        self.pos[1] = random.randint(0, Window.height -1000)
+    def move(self, elem):
+        self.pos[0] = random.randrange( 0, int( Window.width-self.size[0]), int(elem.pos[0]))
+        self.pos[1] = random.randrange(int(Window.height/2),int( Window.height -self.size[0]*3), int(elem.pos[1]))
         
 class Wormhole(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas:
             Color(1, 1, 1)  # Change color as needed
-            self.circle = Ellipse(pos=self.pos, size=self.size, source = "wormhole.png")
+            self.circle = Ellipse(pos=self.pos, size=self.size, source = "wormho.png")
 
         self.bind(pos=self.update_circle_pos, size=self.update_circle_size)
 
@@ -373,26 +371,50 @@ class Wormhole(Widget):
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
     
-class PointsCounter(Widget):
+    def collide_dir(self, obj2):
+        left1 = self.x
+        right1 = self.x + self.width
+
+        left2 = obj2.x
+        right2 = obj2.x + obj2.width
+
+        top1 = self.y + self.height
+        bottom1 = self.y
+
+        top2 = obj2.y + obj2.height
+        bottom2 = obj2.y
+
+        
+        # Check for collision
+        if right1 == left2 or left1 == right2 or top1 == bottom2 or bottom1 == top2:
+            # Determine collision direction
+            if right1 == left2:
+                return 'right'
+            elif left1 == right2:
+                return 'left'
+            
+        
+    
+class Enemylife(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         # Drawing the counter rectangle
         with self.canvas:
             Color(1, 1, 1)
-            self.counter = Rectangle(pos=self.pos, size=self.size, source = "counter.png")
-
+            self.counter = Rectangle(pos=self.pos, size=self.size, source = "vita.png")
+ 
         # Initial score
-        self.score_value = 0
+        self.enemy_value = 20
 
         # Create a layout for label and counter
         self.layout = BoxLayout(orientation='vertical')
 
         # Adding label to display score
-        self.label = Label(text=str(self.score_value))
+        self.label = Label(text=str(self.enemy_value))
         self.layout.add_widget(self.label)
 
-        # Add the layout to PointsCounter widget
+        # Add the layout to Enemylife widget
         self.add_widget(self.layout)
 
         # Binding position and size update methods
@@ -407,8 +429,12 @@ class PointsCounter(Widget):
         self.layout.pos = self.pos
 
     def score(self):
-        self.score_value += 1
-        self.label.text = str(self.score_value)  # Update label text with new score
+        self.enemy_value += 1
+        self.label.text = str(self.enemy_value)  # Update label text with new score
+
+    def descore(self):
+        self.enemy_value -= 1
+        self.label.text = str(self.enemy_value)
 
 class CoinsCounter(Widget):
     def __init__(self, **kwargs):
@@ -429,11 +455,11 @@ class CoinsCounter(Widget):
         self.label = Label(text=str(self.score_value))
         self.layout.add_widget(self.label)
 
-        # Add the layout to PointsCounter widget
+        # Add the layout to Enemylife widget
         self.add_widget(self.layout)
 
         # Binding position and size update methods
-        self.bind(size=self.update_rect_size, pos = self.update_rect_pos)
+        self.bind(size=self.update_rect_size, pos = self.update_rect_pos) #type: ignore 
 
     def update_rect_size(self, *args):
         self.counter.size = self.size
@@ -466,7 +492,7 @@ class LifeCounter(Widget):
         self.label = Label(text=str(self.life_value))
         self.layout.add_widget(self.label)
 
-        # Add the layout to PointsCounter widget
+        # Add the layout to Enemylife widget
         self.add_widget(self.layout)
 
         # Binding position and size update methods
@@ -551,6 +577,7 @@ class Bombshell(Widget):
         with self.canvas:
             Color(1, 1, 1)  # Example color
             Ellipse(pos=self.pos, size=(60, 60), source = "esplosione.png")
+        self.pos = (50000, 50000)
         
 
     def clear_from_ground(self,dt):
@@ -569,6 +596,7 @@ class Laser(Widget):
         
         with self.canvas:
             PushMatrix()
+            Color(0,0.9,0)
             self.rotation = Rotate(angle=self.angle, origin=self.center)
             self.laser = Rectangle(pos=self.pos, size=self.size)
             PopMatrix()
@@ -633,8 +661,8 @@ class Gravitonio(Widget):
         super().__init__(**kwargs)
 
         with self.canvas:
-            Color(0, 0, 0)  # Black color
-            self.circle = Ellipse(pos=self.pos, size=self.size)
+            Color(1, 1, 1)  # Black color
+            self.circle = Ellipse(pos=self.pos, size=self.size, source = "gravitonio.png")
 
         # Bind position and size updates to the update method
         self.bind(pos=self.update_ellipses, size=self.update_ellipses)
@@ -654,10 +682,43 @@ class Gravitonio(Widget):
     
     #togliere l'ellisse grande e scrivere la proprità raggio, usare quella per definire l funzione collide + cercare equazione della traiettoria 
 
+
+
+class Shield(Widget):
+    alpha = NumericProperty(0)
+    source = "shield.png"
+    damaged_shield = "damaged.png"
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        
+        with self.canvas:
+            self.color = Color(1, 1, 1, self.alpha)
+            
+            self.circle = Ellipse(pos=self.pos, size=self.size, source = self.source)
+
+        # Bind position and size updates to the update method
+        self.bind(pos=self.update_ellipses, size=self.update_ellipses, alpha=self.update_color)
+
+    shield_power = 3
     
+    def update_ellipses(self, *args):
+        self.circle.pos = self.pos
+        self.circle.size = self.size
 
+    def update_color(self, *args):
+        self.color.a = self.alpha
 
+    def move_with(self, elem):
+        self.pos = elem.pos
 
+    def collide_with_bullet(self, bullet):
+        if self.alpha == 0:
+            return False  # Ignore collision if the shield is invisible
+        return self.collide_widget(bullet)
+    
+ 
 
 class CannonGame(Widget):# properties of objects should be in class
     tank = ObjectProperty(None)
@@ -673,58 +734,70 @@ class CannonGame(Widget):# properties of objects should be in class
         print("level", self.level)
         
 
-#source = "gioco2.jpg"
+
         # Initialize canvas
         with self.canvas:
-            Color(1, 1, 1,0.8)
+            Color(1, 1, 1)
             
-            self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height), source = "gioco2.jpg")
+            self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height), source = "sfondo2.jpg")
             #Color(1, 1, 1)
             #self.soil = Rectangle(pos=(0, 0), size=(Window.width, Window.height / 3), source = "ground.png")
         # Initialize tank
         self.tank = Tank()
         self.tank.size_hint = (None, None)
         self.tank.pos = (0, 150)
-        self.tank.size = (100, 80)
+        self.tank.size = (150, 150)
         self.add_widget(self.tank)
+
+        self.shield = Shield()
+        self.shield.size_hint = (None, None)
+        self.shield.pos = (0, 150)
+        self.shield.size = (155, 155)
+        self.add_widget(self.shield)
+        
+
+
 
         self.enemy = Enemy()
         self.enemy.size_hint = (None, None)
         self.enemy.pos = (Window.width/2 - self.enemy.size[0]*2, Window.height / 1.5)
-        self.enemy.size = (190, 80)
+        self.enemy.size = (165, 160)
+        self.enemy.set_cannon_angle()
         self.add_widget(self.enemy)
 
 
         self.keys_pressed = set()
         self.bullets = set()
         self.enemy_bullets = set()
-        self.pezzi = set()
+        
 
 
         # Initialize rock
         self.rock = Rock()
-        self.rock.size = (70, 70)
+        self.rock.size = (90, 90)
         self.add_widget(self.rock)
+
         if self.level == 1:
-            self.rock.pos = (Window.width/2 +100, Window.height / 3)
+            self.rock.pos = (Window.width/2 +100, 390)
+            
         elif self.level == 2:
-            self.rock.pos = (100, 100)
+            self.rock.pos = (100, 390)
 
 
 
         # Initialize wormholes
         self.enter_wormhole = Wormhole()
         self.add_widget(self.enter_wormhole)
-        self.enter_wormhole.pos = (Window.width / 2.5, Window.height / 3)
-        self.enter_wormhole.size= (80, 80)
+        self.enter_wormhole.pos = (Window.width / 2, 180)
+        self.enter_wormhole.size= (100, 100)
         
 
         self.exit_wormhole = Wormhole()
         self.add_widget(self.exit_wormhole)
         self.exit_wormhole.pos = (Window.width / 2 + 280, Window.height / 2)
-        self.exit_wormhole.size = (80, 80)
+        self.exit_wormhole.size =  (100, 100)
         
-        self.counter = PointsCounter()  
+        self.counter = Enemylife()  
         self.add_widget(self.counter)
         self.counter.pos = (0,Window.height - self.counter.size[1])
         self.counter.size = (80, 80)
@@ -796,7 +869,7 @@ class CannonGame(Widget):# properties of objects should be in class
         # Called when the screen is displayed
         self.clear_widgets()
         self.add_widget(Label(text=f'Cannon Game Level: {self.level}'))
-        print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+       
 
     def remove_with_delay(self, widget,*largs):
         if isinstance(widget, Bombshell) and not widget.exploded:
@@ -805,53 +878,79 @@ class CannonGame(Widget):# properties of objects should be in class
         else: 
             self.remove_widget(widget)
 
+
     def update(self, dt):
         angle = self.tank.set_cannon_angle(self.mouse)
-        
         Laser.angle = math.degrees(angle)
         
-        if 275 in self.keys_pressed:
+        self.enemy.set_cannon_angle()
+
+        
+
+        if 100 in self.keys_pressed:
             self.tank.move_right()
-        if 276 in self.keys_pressed:
+        if 97 in self.keys_pressed:
             self.tank.move_left()
         self.tank.set_cannon_angle(self.mouse)
         
-        if 115 in self.keys_pressed:
+        if 119 in self.keys_pressed:
             self.tank.shoot(self)
         if 112 in self.keys_pressed and self.power.size[0]<=522:   #if you press p
             self.power.increase_size()
         if 108 in self.keys_pressed and self.power.size[0] >= 140:   #if you press l
             self.power.decrease_size()
-        if 32 in self.keys_pressed and self.coinscounter.score_value >= 3:
+        if 32 in self.keys_pressed:
             self.tank.shootLaser(self)
         if 98 in self.keys_pressed: #shoot bombshell (b)
             self.tank.shootBombshell(self)
         if self.lifecounter.life_value == 0:
-            #CannonApp().stop() hai rotto il cazzo
-            popup = Popup(title='Game', content=Label(text='Game Over'),
-              auto_dismiss=False,size_hint=(None, None), size=(400, 400))
-            #popup.open()
-            #popup.dismiss()
-            
-            
-            
+            global username
+            self.SaveScore(username, self.counter.enemy_value)
+            screen_manager.current = 'game_over'
+        
+        if self.counter.enemy_value == 0:
+            screen_manager.current = 'game_win'
+        
+        bullets_to_remove = set()
+        
+        #functions to dectect where the collision between the tank and wormhole took place, so to keep going in the same direction from the other wormhole
+        enter_collide_dir = self.enter_wormhole.collide_dir(self.tank)
+        exit_collide_dir = self.exit_wormhole.collide_dir(self.tank)
+
+
+        #the more coins you have the more you can use the laser 
+        if self.coinscounter.score_value >= 10 and self.coinscounter.score_value >= 19:
+            self.tank.laser_shoot_cooldown = 1
+        
+        if self.coinscounter.score_value >= 20:
+            self.tank.laser_shoot_cooldown = 0.3
+         
+        
+
+        if self.coinscounter.score_value >= 2 and 101 in self.keys_pressed and self.shield.shield_power > 0:  #if you have more than 2 coins and E is pressed you get a shield 
+            self.shield.alpha = 0.6   #the shield is always on the spaceship but it becomes visible only if the condition is satisfied
+            if self.shield.shield_power == 2:
+                self.shield.circle.source = "damaged2.png"    # when the shield is invisible the collision is not detected 
+            if self.shield.shield_power == 1:
+                self.shield.circle.source = "damaged1.png"
+                
+        else:
+            self.shield.alpha = 0
+                
+        self.shield.move_with(self.tank) #makes the shield always stay on the spaceship 
+        
+        
         
         self.enemy.shoot(self)
         
-
+    
+        #sort of gravity
         if self.tank.y > 150:
             self.tank.y -= 2.5
         else:
             self.tank.y = 150
         
-        # Check collision between the rock and the bullets
-        bullets_to_remove = set()
         
-        
-        self.enemy.set_cannon_angle()
-        #self.enemy.shoot(self)
-
-        #Clock.schedule_interval(self.enemy.shoot, 5)
 
         
         for bullet in self.bullets:
@@ -860,10 +959,12 @@ class CannonGame(Widget):# properties of objects should be in class
             else: 
                 bullet.speed = 20
 
-            if self.tank.collide_with_bullet(bullet):
-                self.lifecounter.descore()
-                #self.remove_widget(bullet)
-                #bullet.pos = (0,500000)
+            
+
+            if self.shield.collide_with_bullet(bullet):
+                self.shield.shield_power -= 1
+                bullets_to_remove.add(bullet)
+                bullet.pos = (0,500000)  #we must send the bullet away because it is removed graphically but apprently the hit box stays 
                 
 
                 
@@ -877,7 +978,6 @@ class CannonGame(Widget):# properties of objects should be in class
                     bullet.pos = bullet.pos 
                     Clock.schedule_once(bullet.explode, 2)  
                     def code_to_execute(dt):
-                        self.counter.score()
                         self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0], self.rock.size[0] )
 
                     if not bullet.has_collided:
@@ -886,10 +986,31 @@ class CannonGame(Widget):# properties of objects should be in class
                         bullet.has_collided = True
                 else:
                     bullets_to_remove.add(bullet)
-                    self.rock.pieces()
-                    
                     self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0], self.rock.size[0] )
-                    self.counter.score()
+                    
+
+
+            if self.enemy.collide_with_bullet(bullet):
+                if isinstance(bullet, Bombshell):
+                    bullet.mass = 0
+                    bullet.speed = 0
+                    bullet.pos = bullet.pos 
+                    Clock.schedule_once(bullet.explode, 2)  
+                    def code_to_execute(dt):
+                        self.counter.descore()
+                        
+
+                    if not bullet.has_collided:
+                        Clock.schedule_once(code_to_execute, 2)
+                        Clock.schedule_once(partial(self.remove_with_delay, bullet), 3)
+                        bullet.has_collided = True
+                else:
+                    bullets_to_remove.add(bullet)
+                    self.counter.descore()
+                    self.remove_widget(bullet)
+                    bullet.pos = (0,500000)
+
+                
 
             if bullet.pos[1] <= 150:
                 if isinstance(bullet, Bombshell):
@@ -938,15 +1059,24 @@ class CannonGame(Widget):# properties of objects should be in class
                     bullet.gravitational_attraction(self.gravitonio)
             
             if self.coin.collide_with_bullet(bullet):
-                self.coin.move()
+                self.coin.move(self.enemy)
                 self.coinscounter.score()
 
 
         if self.enter_wormhole.collide_with_bullet(self.tank): 
-            self.tank.pos = (self.exit_wormhole.center_x - 250, self.exit_wormhole.center_y )
+            if enter_collide_dir == 'left':
+                self.tank.pos = (self.exit_wormhole.center_x + 200, self.exit_wormhole.center_y )
+            else:
+                self.tank.pos = (self.exit_wormhole.center_x - 250, self.exit_wormhole.center_y )
+
+
         
         if self.exit_wormhole.collide_with_bullet(self.tank): 
-            self.tank.pos = (self.enter_wormhole.center_x - 250, self.enter_wormhole.y )
+            if exit_collide_dir == 'right':
+                self.tank.pos = (self.enter_wormhole.center_x - 200, self.enter_wormhole.y )
+            else:
+                self.tank.pos = (self.enter_wormhole.center_x + 200, self.enter_wormhole.y )
+        
        
         
         #enemy's bullets are different from ours, the enemy's one do not detroy neither the rock nor the mirror, the laser is still reflected. 
@@ -955,10 +1085,19 @@ class CannonGame(Widget):# properties of objects should be in class
             bullet.speed = self.power.size[0]/30
             bullet.trajectory()
             
+
+            if self.shield.collide_with_bullet(bullet):
+                self.shield.shield_power -= 1
+                bullets_to_remove.add(bullet)
+                bullet.pos = (0,500000)
+
+
             if self.tank.collide_with_bullet(bullet):
                 self.lifecounter.descore()
                 self.remove_widget(bullet)
                 bullet.pos = (0,500000)
+            
+            
 
 
             if self.mirror.collide_with_bullet(bullet): #if bullet is laser change angle if bullet destroy
@@ -987,17 +1126,54 @@ class CannonGame(Widget):# properties of objects should be in class
         for bullet in self.bullets:
             bullet.trajectory()
 
+            if self.tank.collide_with_bullet(bullet):
+                self.lifecounter.descore()
+                self.remove_widget(bullet)
+                bullet.pos = (0,500000)
+
+
 
         # Remove collided bullets
         for bullet in bullets_to_remove:
             self.remove_widget(bullet)
 
+        
+        
       
         
+    def SaveScore(self, username, score):
+        import os
+        filename = "scores.txt" 
+        curr_path = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(curr_path, filename), 'a+') as file:
+            file.write(username + ";" + str(score) )  
 
+    def LoadTop(self):
+        import os
+        results = []
+        usernames = []
+        filename = "scores.txt"
+        curr_path = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(curr_path, filename), 'r') as file:
+            line = file.readlines()
+            for i in line: 
+                #spezza ogni linea in username e score
+                stats = i.split(";")
+                results.append(int(stats[1]))
+                usernames.append(stats[0])
+            
+        sorted_res = results.copy()
+        sorted_res.sort(reverse=True)
+        sorted_res = sorted_res[0:5]
+        username_res = []
+        for i in range(len(sorted_res)):
+            el = sorted_res[i]
+            index = results.index(el)
+
+            username_res.append(usernames[index])
+        return usernames[0:5], sorted_res
 
     def on_keyboard_down(self, keyboard, keycode, *args):
-        
         self.keys_pressed.add(keycode)
 
 
@@ -1013,7 +1189,7 @@ class MainMenuBackground(Widget):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source="sfond.jpg", pos=self.pos, size=self.size)
+            self.rect = Rectangle(source="back2.jpg", pos=self.pos, size=self.size)
 
     def update_rect(self, *args):
         self.rect.pos = self.pos
@@ -1088,13 +1264,12 @@ class MainMenu(Screen):
         self.add_widget(exit_button)
 
 class Levels(Screen):
-    level_defined = False
+    level_defined = False 
     def play(self, instance,level):
-        CannonGame.level = level
-        self.manager.current = 'cannon_game'
         self.level_defined = True
-        app.cannon_game.clear_widgets()
-        app.cannon_game.reinitialize()
+        CannonGame.level = level 
+        screen_manager.current= "get_username"
+
         
         
         
@@ -1196,25 +1371,127 @@ class Armory(Screen):
         self.rect.size = self.size
 
 
+class Game_over(Screen):
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self.update_rect, size=self.update_rect)
+        with self.canvas:
+            self.rect = Rectangle(source= "fine1.jpg", pos=self.pos, size=self.size)
+
+
+        button_color = (0,0,0,0.8)
+
+        PlayAgain = Button(
+            text='Play again',
+            size_hint=(0.25, 0.2),
+            pos={50,  30},
+            font_size=37,
+            background_color=button_color
+        )
+        PlayAgain.bind(on_release=self.play)
+        self.add_widget(PlayAgain)
+
+    
+
+    def play(self,instance):
+        app.cannon_game.reinitialize()
+        screen_manager.current = 'cannon_game' # type: ignore
+    
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+    
+
+class Game_win(Screen):
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.bind(pos=self.update_rect, size=self.update_rect)
+        with self.canvas:
+            self.rect = Rectangle(source= "win1.jpg", pos=self.pos, size=self.size)
+
+
+        button_color = (0,0,0,0.8)
+
+        PlayAgain = Button(
+            text='Play again',
+            size_hint=(0.25, 0.2),
+            pos={50,  30},
+            font_size=37,
+            background_color=button_color
+        )
+        PlayAgain.bind(on_release=self.play)
+        self.add_widget(PlayAgain)
+
+    
+
+    def play(self,instance):
+        app.cannon_game.reinitialize()
+        screen_manager.current = 'cannon_game' # type: ignore
+    
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+
+
+username = ""
+class UsernameLayout(BoxLayout):
+    def __init__(self, **kwargs):
+        super(UsernameLayout, self).__init__(**kwargs)
+        self.orientation = 'horizontal'
+
+        # Create a Label
+        self.label = Label(text='Enter username:')
+        self.add_widget(self.label)
+
+        # Create a TextInput
+        self.input = TextInput()
+        self.add_widget(self.input)
+
+        # Create a Button
+        self.button = Button(text='press to enter username')
+        self.button.bind(on_press=self.GetUsername)
+        self.add_widget(self.button)
+
+    def GetUsername(self, instance):
+        global username
+        username = self.input.text
+        screen_manager.current = 'cannon_game'
+        app.cannon_game.clear_widgets()
+        app.cannon_game.reinitialize()
+
+class WriteUsername(Screen): 
+    def __init__(self, **kwargs):
+        super(WriteUsername, self).__init__(**kwargs)
+        self.add_widget(UsernameLayout()) 
 
 
 
-
+screen_manager = None
 class CannonApp(App):
     def build(self):
-        self.screen_manager = ScreenManager()
+        self.screen_manager = ScreenManager(transition=RiseInTransition(duration = 0.3))
+        global screen_manager
+        screen_manager = self.screen_manager
 
         main_menu = MainMenu(name='main_menu')
         game_screen = Screen(name='cannon_game')
         self.cannon_game = CannonGame()
         levels = Levels(name = 'levels')
         armory = Armory(name = 'armory')
+        game_over = Game_over(name='game_over')
+        game_win = Game_win(name='game_win')
+        get_username = WriteUsername(name="get_username")
 
         game_screen.add_widget(self.cannon_game)
         self.screen_manager.add_widget(main_menu)
         self.screen_manager.add_widget(levels)
         self.screen_manager.add_widget(game_screen)
         self.screen_manager.add_widget(armory)
+        self.screen_manager.add_widget(game_over)
+        self.screen_manager.add_widget(game_win)
+        self.screen_manager.add_widget(get_username)
 
         # Schedule the update method of the CannonGame instance added to the game_screen
         Clock.schedule_interval(self.cannon_game.update, 1 / self.cannon_game.fps)
