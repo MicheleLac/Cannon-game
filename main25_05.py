@@ -432,8 +432,8 @@ class Enemylife(Widget):
         self.enemy_value += 1
         self.label.text = str(self.enemy_value)  # Update label text with new score
 
-    def descore(self):
-        self.enemy_value -= 1
+    def descore(self,value=1):
+        self.enemy_value -= value
         self.label.text = str(self.enemy_value)
 
 class CoinsCounter(Widget):
@@ -506,8 +506,8 @@ class LifeCounter(Widget):
         self.counter.pos = self.pos
         self.layout.pos = self.pos
 
-    def descore(self):
-        self.life_value -= 1
+    def descore(self,value=1):
+        self.life_value -= value
         self.label.text = str(self.life_value)  # Update label text with new score
 
     def score(self, num):
@@ -515,7 +515,28 @@ class LifeCounter(Widget):
         self.label.text = str(self.life_value)  # Update label text with new score
 
 class PerpetuoPlatform(Widget):
-    pass
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas:
+            Color(1, 1, 1)
+            self.rect = Rectangle(pos=self.pos, size=self.size, source = "perpetuo.jpg")
+            
+
+        self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
+
+    def update_rect_pos(self, *args):
+        self.rect.pos = self.pos
+    
+    def update_rect_size(self, *args):
+        self.rect.size = self.size
+    
+    def collide_with_bullet(self, bullet):
+        return self.collide_widget(bullet)
+
+    def move(self,start, finish, exclude1, exclude2, exclude3):
+        self.pos[0] = random_except(start, finish, exclude1, exclude2, exclude3)
+        #self.pos[1] = random.randrange(250, 500)
+    
 
 
 class Powerbar(Widget):
@@ -777,11 +798,12 @@ class CannonGame(Widget):# properties of objects should be in class
         self.rock.size = (90, 90)
         self.add_widget(self.rock)
 
-        if self.level == 1:
-            self.rock.pos = (Window.width/2 +100, 390)
-            
-        elif self.level == 2:
-            self.rock.pos = (100, 390)
+        self.perpetuo = PerpetuoPlatform()
+        self.perpetuo.size = (200, 90)
+        self.perpetuo.pos = (400,400)
+        self.add_widget(self.perpetuo)
+
+       
 
 
 
@@ -796,7 +818,22 @@ class CannonGame(Widget):# properties of objects should be in class
         self.add_widget(self.exit_wormhole)
         self.exit_wormhole.pos = (Window.width / 2 + 280, Window.height / 2)
         self.exit_wormhole.size =  (100, 100)
-        
+
+        if self.level == 1:
+            self.rock.pos = (Window.width/2 +100, 390)
+            
+        """"elif self.level == 2:
+            
+            self.add_widget(self.enter_wormhole)
+            self.enter_wormhole.pos = (Window.width / 2, 180)
+            self.enter_wormhole.size= (100, 100)
+            
+
+            self.add_widget(self.exit_wormhole)
+            self.exit_wormhole.pos = (Window.width / 2 + 280, Window.height / 2)
+            self.exit_wormhole.size =  (100, 100)"""
+
+
         self.counter = Enemylife()  
         self.add_widget(self.counter)
         self.counter.pos = (0,Window.height - self.counter.size[1])
@@ -908,7 +945,7 @@ class CannonGame(Widget):# properties of objects should be in class
             self.SaveScore(username, self.counter.enemy_value)
             screen_manager.current = 'game_over'
         
-        if self.counter.enemy_value == 0:
+        if self.counter.enemy_value <= 0:
             screen_manager.current = 'game_win'
         
         bullets_to_remove = set()
@@ -997,7 +1034,7 @@ class CannonGame(Widget):# properties of objects should be in class
                     bullet.pos = bullet.pos 
                     Clock.schedule_once(bullet.explode, 2)  
                     def code_to_execute(dt):
-                        self.counter.descore()
+                        self.counter.descore(3)
                         
 
                     if not bullet.has_collided:
@@ -1006,7 +1043,11 @@ class CannonGame(Widget):# properties of objects should be in class
                         bullet.has_collided = True
                 else:
                     bullets_to_remove.add(bullet)
-                    self.counter.descore()
+                    if isinstance(bullet, Laser):
+                        self.counter.descore(2)
+                    else:
+                        self.counter.descore()
+
                     self.remove_widget(bullet)
                     bullet.pos = (0,500000)
 
@@ -1049,7 +1090,15 @@ class CannonGame(Widget):# properties of objects should be in class
                     #bullets_to_remove.add(bullet)
                     #self.mirror.move()
                     
-            
+            if self.perpetuo.collide_with_bullet(bullet):
+                if isinstance(bullet, Bombshell):
+                    bullet.mass = 0
+                    bullet.speed = 0
+                    bullet.pos = bullet.pos 
+                    Clock.schedule_once(bullet.explode, 2) 
+                else:
+                    self.remove_widget(bullet)
+
             if self.enter_wormhole.collide_with_bullet(bullet):
                 bullet.pos = self.exit_wormhole.center
             
@@ -1085,6 +1134,8 @@ class CannonGame(Widget):# properties of objects should be in class
             bullet.speed = self.power.size[0]/30
             bullet.trajectory()
             
+            if self.perpetuo.collide_with_bullet(bullet): #if enemy bullet collides with perpetuo, bullet gets destroyed
+                self.remove_widget(bullet)
 
             if self.shield.collide_with_bullet(bullet):
                 self.shield.shield_power -= 1
@@ -1377,7 +1428,7 @@ class Game_over(Screen):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source= "fine1.jpg", pos=self.pos, size=self.size)
+            self.rect = Rectangle(source= "fine.jpg", pos=self.pos, size=self.size)
 
 
         button_color = (0,0,0,0.8)
@@ -1409,7 +1460,7 @@ class Game_win(Screen):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source= "win1.jpg", pos=self.pos, size=self.size)
+            self.rect = Rectangle(source= "winn.jpg", pos=self.pos, size=self.size)
 
 
         button_color = (0,0,0,0.8)
