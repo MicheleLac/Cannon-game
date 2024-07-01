@@ -1,10 +1,12 @@
 
+from cgitb import text
 from tkinter import Button
 from turtle import title, width
+from webbrowser import BackgroundBrowser
 from kivy.config import Config
 import os
 from matplotlib import use
-from numpy import delete
+from numpy import delete, savez_compressed, source
 from sklearn.linear_model import enet_path
 from zmq import has
 Config.set('graphics', 'fullscreen', 'auto')
@@ -403,7 +405,7 @@ class Enemylife(Widget):
 
         # Drawing the counter rectangle
         with self.canvas:
-            Color(1, 1, 1)
+            Color(0.5, 0.5, 0.5)
             self.counter = Rectangle(pos=self.pos, size=self.size, source = "vita.png")
  
         # Initial score
@@ -444,8 +446,8 @@ class CoinsCounter(Widget):
 
         # Drawing the counter rectangle
         with self.canvas:
-            Color(1, 1, 1)
-            self.counter = Rectangle(pos=self.pos, size=self.size, source = "counter.png")
+            Color(0.8, 0.8, 0.8)
+            self.counter = Rectangle(pos=self.pos, size=self.size, source = "coin.png")
 
         # Initial score
         self.score_value = 0
@@ -482,7 +484,7 @@ class LifeCounter(Widget):
         # Drawing the counter rectangle
         with self.canvas:
             Color(1, 1, 1)
-            self.counter = Rectangle(pos=self.pos, size=self.size, source = "counter.png")
+            self.counter = Rectangle(pos=self.pos, size=self.size, source = "vita.png")
 
         # Initial score
         self.life_value = 5
@@ -521,7 +523,7 @@ class PerpetuoPlatform(Widget):
         super().__init__(**kwargs)
         with self.canvas:
             Color(1, 1, 1)
-            self.rect = Rectangle(pos=self.pos, size=self.size, source = "perpetuo.jpg")
+            self.rect = Rectangle(pos=self.pos, size=self.size, source = "perpetuo.png")
             
 
         self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
@@ -749,7 +751,7 @@ class CannonGame(Widget):# properties of objects should be in class
     wormhole = ObjectProperty(None)
     fps = NumericProperty(60)
     level = 1
-    
+    Enemy_counter = NumericProperty(0)
     
 
     def __init__(self, **kwargs):
@@ -836,7 +838,7 @@ class CannonGame(Widget):# properties of objects should be in class
             self.exit_wormhole.size =  (100, 100)"""
 
 
-        self.counter = Enemylife()  
+        self.counter = Enemylife() 
         self.add_widget(self.counter)
         self.counter.pos = (0,Window.height - self.counter.size[1])
         self.counter.size = (80, 80)
@@ -917,7 +919,8 @@ class CannonGame(Widget):# properties of objects should be in class
         else: 
             self.remove_widget(widget)
 
-
+    
+    
     def update(self, dt):
         angle = self.tank.set_cannon_angle(self.mouse)
         Laser.angle = math.degrees(angle)
@@ -943,9 +946,11 @@ class CannonGame(Widget):# properties of objects should be in class
         if 98 in self.keys_pressed: #shoot bombshell (b)
             self.tank.shootBombshell(self)
         if self.lifecounter.life_value == 0:
-            global username
-            Clock.unschedule(self.update)
-            self.SaveScore(username, 20 - self.counter.enemy_value )
+            #global username
+            #Clock.unschedule(self.update)
+            #self.SaveScore(username, 20 - self.counter.enemy_value )
+            Game_over.EnemyLF= self.counter.enemy_value   #set enemy life left to the current Enemy life counter value 
+            
             screen_manager.current = 'game_over'
         
         if self.counter.enemy_value <= 0:
@@ -1195,52 +1200,7 @@ class CannonGame(Widget):# properties of objects should be in class
         
       
         
-    def SaveScore(self, username, score):
-        import os
-        filename = "scores.txt" 
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(curr_path, filename), 'a+') as file:
-            file.write(username + ";" + str(score) )  
-
-    def LoadTop(self):
-        
-        results = []
-        usernames = []
-        filename = "scores.txt"
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(curr_path, filename), 'r') as file:
-            line = file.readlines()
-            for i in line: 
-                #spezza ogni linea in username e score
-                stats = i.split(";")
-                results.append(int(stats[1]))
-                usernames.append(stats[0])
-            
-        sorted_res = results.copy()
-        sorted_res.sort(reverse=True)
-        sorted_res = sorted_res[0:5]
-        username_res = []
-        for i in range(len(sorted_res)):
-            el = sorted_res[i]
-            index = results.index(el)
-
-            username_res.append(usernames[index])
-        return usernames[0:5], sorted_res
     
-    def get_scores(self):
-        filename = "scores.txt"
-        layout = BoxLayout(orientation='vertical')
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        file_path = os.path.join(curr_path, filename)
-        
-        if not os.path.exists(file_path):
-            return "No scores available."
-
-        with open(file_path, 'r') as file:
-            scores_text = file.read()
-        score_label = Label(text=scores_text)
-        layout.add_widget(score_label)
-        return layout
     
     
     def on_keyboard_down(self, keyboard, keycode, *args):
@@ -1258,45 +1218,63 @@ class HallOfFame(Screen):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source= "fine.jpg", pos=self.pos, size=self.size)
+            self.rect = Rectangle(source="cutbill.jpg", pos=self.pos, size=self.size)
 
+        button_color = (0, 0, 0, 0.8)
 
-        button_color = (0,0,0,0.8)
-
-        
-        """PlayArcade= Button(
-            text='Play Arcade',
-            size_hint=(0.25, 0.2),
-            pos={50,  30},
+        self.back_button = Button(
+            text='Back',
+            size_hint=(0.3, 0.2),
+            pos= (500,30),
             font_size=37,
             background_color=button_color
         )
-        PlayArcade.bind(on_release=self.play)
-        self.add_widget(PlayArcade)"""
+        self.back_button.bind(on_release=self.GoMainMENU)
+        self.add_widget(self.back_button)
 
-        HallOfFame = Button(
+        self.scores_button = Button(
             text='Hall of Fame',
             size_hint=(0.25, 0.2),
-            pos={10,  30},
+            pos=(10, 30),
             font_size=37,
             background_color=button_color
         )
-        HallOfFame.bind(on_release=self.show) #type:ignore
-        self.add_widget(HallOfFame)
+        self.scores_button.bind(on_release=self.get_scores)
+        self.add_widget(self.scores_button)
 
-    
+        # Create a BoxLayout for the scores label and add it to the screen
+        self.scores_layout = BoxLayout(orientation='vertical')
+        self.add_widget(self.scores_layout)
 
-    def play(self,instance):
+    def GoMainMENU(self, instance):
         app.cannon_game.reinitialize()
-        screen_manager.current = 'cannon_game' # type: ignore
-    
-    
-    def show(self, instance):
-        layout = BoxLayout(orientation='vertical')
-        score_label = CannonGame.get_scores
-        layout.add_widget(score_label)
-        return layout
-    
+        self.manager.current = 'main_menu'
+
+    def get_scores(self, instance):
+        filename = "scores.txt"
+        curr_path = os.path.dirname(os.path.realpath(__file__))
+        file_path = os.path.join(curr_path, filename)
+        
+        if not os.path.exists(file_path):
+            scores_text = "No scores available."
+        else:
+            with open(file_path, 'r') as file:
+                scores_text = file.read()
+
+        # Clear the previous scores (if any) but keep the back button and other elements
+        self.scores_layout.clear_widgets()
+        
+        score_label = Label(
+            text=scores_text,
+            color=(1, 1, 1, 1),
+            font_size=35
+        )
+        self.scores_layout.add_widget(score_label)
+
+    def play(self, instance):
+        app.cannon_game.reinitialize()
+        self.manager.current = 'cannon_game'
+
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
@@ -1317,8 +1295,8 @@ class MainMenuBackground(Widget):
 
 class MainMenu(Screen):
     def show_welcome(self, instance):
-        welcome_text = 'Hope you have fun'
-        popup = Popup(title="Welcome", content=Label(text=welcome_text), size_hint=(None, None), size=(500, 250))
+        welcome_text = 'Welcome, here are some instruction to play this game: \n - press "a" and "d" to move left and right, \n -press "w" to shoot bullets, spacebar for laser and b for bombshell, \n -after you collected two or more coins you get access to the shield, activate it with "e", \n -press "p" and "l" to increase or decrease the power'
+        popup = Popup(title="Welcome", content=Label(text=welcome_text), size_hint=(None, None), size=(750, 300))
         popup.open()
 
     def play(self, instance):
@@ -1337,7 +1315,7 @@ class MainMenu(Screen):
         button_color = (0,0,0,0.8)
 
         welcome_button = Button(
-            text='Welcome',
+            text="Instructions",
             size_hint=(0.2, 0.2),
             pos_hint={'center_x': 0.5, 'center_y': 0.8},
             font_size=37,
@@ -1373,7 +1351,7 @@ class MainMenu(Screen):
         exit_button = Button(
             text='Exit',
             size_hint=(0.2, 0.2),
-            pos_hint={'center_x': 0.5, 'center_y': 0.2},
+            pos_hint={'center_x': 0.8, 'center_y': 0.2},
             font_size=37,
             background_color=button_color
         )
@@ -1384,7 +1362,7 @@ class MainMenu(Screen):
         fame_button = Button(
             text='Hall of Fame',
             size_hint=(0.2, 0.2),
-            pos_hint={'center_x': 0.5, 'center_y': 0},
+            pos_hint={'center_x': 0.5, 'center_y': 0.2},
             font_size=37,
             background_color=button_color
         )
@@ -1504,7 +1482,8 @@ class Armory(Screen):
 
 
 class Game_over(Screen):
-    
+    EnemyLF =0
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.bind(pos=self.update_rect, size=self.update_rect)
@@ -1514,7 +1493,7 @@ class Game_over(Screen):
 
         button_color = (0,0,0,0.8)
 
-        PlayAgain = Button(
+        """PlayAgain = Button(
             text='Play again',
             size_hint=(0.25, 0.2),
             pos={50,  30},
@@ -1522,9 +1501,89 @@ class Game_over(Screen):
             background_color=button_color
         )
         PlayAgain.bind(on_release=self.play)
-        self.add_widget(PlayAgain)
+        #self.add_widget(PlayAgain)"""
 
+        Saveprevious = Button(    #save the previous game score
+            text='Save',
+            size_hint=(0.25, 0.2),
+            pos={400,  30},
+            font_size=37,
+            background_color=button_color
+        )
+        Saveprevious.bind(on_release=self.save)
+        self.add_widget(Saveprevious)
+
+
+        back_button = Button(
+            text='Back',
+            size_hint=(0.25, 0.2),
+            pos={1000,  30},
+            font_size=37,
+            background_color=button_color
+        )
+
+        back_button.bind(on_release=self.GoMainMENU)
+        self.add_widget(back_button)
+
+    def GoMainMENU(self, instance):
+        app.cannon_game.reinitialize()
+        self.manager.current = 'main_menu'
+
+
+    def save(self, instance):
+        global username
+        score = self.EnemyLF  #score is the life points left to the enemy
+        self.SaveScore(username, (20 - score)) #the points are the maximum life of the enemy minus his life left
+        app.cannon_game.reinitialize()
+        self.manager.current = 'hall_of_fame'
+
+    def SaveScore(self, username, score):
+        import os
+        filename = "scores.txt" 
+        curr_path = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(curr_path, filename), 'a+') as file:
+            file.write(username + ":" + str(score) + "\n" )  
+
+    def LoadTop(self):
+        
+        results = []
+        usernames = []
+        filename = "scores.txt"
+        curr_path = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(curr_path, filename), 'r') as file:
+            line = file.readlines()
+            for i in line: 
+                #spezza ogni linea in username e score
+                stats = i.split(";")
+                results.append(int(stats[1]))
+                usernames.append(stats[0])
+            
+        sorted_res = results.copy()
+        sorted_res.sort(reverse=True)
+        sorted_res = sorted_res[0:5]
+        username_res = []
+        for i in range(len(sorted_res)):
+            el = sorted_res[i]
+            index = results.index(el)
+
+            username_res.append(usernames[index])
+        return usernames[0:5], sorted_res
     
+    def get_scores(self):
+        filename = "scores.txt"
+        layout = BoxLayout(orientation='vertical')
+        curr_path = os.path.dirname(os.path.realpath(__file__))
+        file_path = os.path.join(curr_path, filename)
+        
+        if not os.path.exists(file_path):
+            return "No scores available."
+
+        with open(file_path, 'r') as file:
+            scores_text = file.read()
+        score_label = Label(text=scores_text)
+        layout.add_widget(score_label)
+        return layout
+
 
     def play(self,instance):
         app.cannon_game.reinitialize()
@@ -1574,7 +1633,7 @@ class UsernameLayout(BoxLayout):
         self.orientation = 'horizontal'
 
         # Create a Label
-        self.label = Label(text='Enter username:')
+        self.label = Label(text='Enter username:', color= (0.9, 0.9, 1, 0.9), font_size = 50, size = (50,70))
         self.add_widget(self.label)
 
         # Create a TextInput
@@ -1582,7 +1641,7 @@ class UsernameLayout(BoxLayout):
         self.add_widget(self.input)
 
         # Create a Button
-        self.button = Button(text='press to enter username')
+        self.button = Button(text='Press to enter username', background_normal = "sfondo2.jpg", color= (0.9, 0.9, 1, 0.9), font_size = 50)
         self.button.bind(on_press=self.GetUsername)
         self.add_widget(self.button)
 
@@ -1596,7 +1655,17 @@ class UsernameLayout(BoxLayout):
 class WriteUsername(Screen): 
     def __init__(self, **kwargs):
         super(WriteUsername, self).__init__(**kwargs)
+        self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
+        
+        with self.canvas: # type: ignore
+            self.rect = Rectangle(source= "sfondo2.jpg", pos=self.pos, size=self.size)
+
         self.add_widget(UsernameLayout()) 
+
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
 
 
 
