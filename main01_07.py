@@ -35,13 +35,12 @@ from kivy.uix.boxlayout import BoxLayout
 
 
 class Tank(Widget):
-    cannon_angle = NumericProperty(0)
+    cannon_angle = NumericProperty(0) # Property to store the angle of the cannon
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-        
-        with self.canvas: #type: ignore
+        with self.canvas: # Set up the graphical representation of the tank and its cannon
             Color(1, 1, 1)
             self.rect = Rectangle(pos=self.pos, size=self.size, source = "spaceship.png" )
             self.cannon_length = 110
@@ -50,45 +49,41 @@ class Tank(Widget):
             self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width)
             self.size = self.rect.size
 
-        self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
+        self.bind(pos=self.update_rect, size=self.update_rect)  # Update rect on position and size change
         self.laser_shoot_cooldown = 2  # Set initial cooldown to 2 seconds
         self.last_shot_time = 0.0  # Track the time of the last shot
         self.num_col =0
         self.has_collided= False
 
-    def update_rect(self, *args):
+    # Update the rectangle's position and size
+    def update_rect(self, *args): 
         self.rect.pos = self.pos
         self.rect.size = self.size
         self.cannon.points = (self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y)
 
-    
+    # Set the angle of the cannon based on mouse position
     def set_cannon_angle(self, mouse_pos):
-        dx = mouse_pos[0] - self.center_x #This line calculates the horizontal distance between the mouse position and the center of the tank.
-        dy = mouse_pos[1] - self.center_y #This line calculates the vertical distance between the mouse position and the center of the tank.
+        dx = mouse_pos[0] - self.center_x #compute the horizontal distance between the mouse position and the center of the tank.
+        dy = mouse_pos[1] - self.center_y #compute the vertical distance between the mouse position and the center of the tank.
         self.cannon_angle = math.atan2(dy, dx)
         
-        
-
         self.cannon.points = (self.center_x, self.center_y,
                               self.center_x + self.cannon_length * math.cos(self.cannon_angle),
                               self.center_y + self.cannon_length * math.sin(self.cannon_angle)
                               )
         return self.cannon_angle
-    
-     
-     
 
-
+    # Check collision with a rock
     def collide_with_rock(self, rock):
         return self.collide_widget(rock)
     
+    # Check collision with a rock
     def collide_with_bullet(self, bullet):
         if screen_manager.current == 'main_menu' or screen_manager.current == 'levels' or screen_manager.current == 'game_win' :  #type: ignore
             return False 
         else:
             self.has_collided = True 
             return self.collide_widget(bullet)
-
 
     def move_right(self):
         if self.right <= Window.width:
@@ -98,33 +93,33 @@ class Tank(Widget):
         if self.x >= 0:
             self.x -= 5
 
-
-
-
+    #shoot bullet after a cooldown period set to 0.3s
     def shoot(self, game):
         self.bullet_shoot_cooldown = 0.3
         current_time = time.time()
         if current_time - self.last_shot_time >= self.bullet_shoot_cooldown:
-            bullet = Bullet()
+            bullet = Bullet() 
             bullet.angle = self.cannon_angle
             bullet.pos = [self.center_x + self.cannon_length * math.cos(bullet.angle) - bullet.size[0] / 2,
                           self.center_y + self.cannon_length * math.sin(bullet.angle) - bullet.size[1] / 2]
-            game.bullets.add(bullet)
-            game.add_widget(bullet)
+            game.bullets.add(bullet)  #add bullet to the set of bullets
+            game.add_widget(bullet) #add widget to the screen
             self.last_shot_time = current_time  # Update last shot time
 
+    #shoot laser from cannon 
     def shootLaser(self, game):
-        #self.shoot_cooldown = 0.3
         current_time = time.time()
         if current_time - self.last_shot_time >= self.laser_shoot_cooldown:
             laser = Laser()
             laser.angle = math.degrees(self.cannon_angle)
             laser.pos = [self.center_x + self.cannon_length * math.cos(self.cannon_angle) - laser.size[0] / 2,
                           self.center_y + self.cannon_length * math.sin(self.cannon_angle) - laser.size[1] / 2]
-            game.bullets.add(laser)
+            game.bullets.add(laser) #add laser to the set of bullets
         
             game.add_widget(laser)
             self.last_shot_time = current_time  # Update last shot time
+
+    #shoot bobshell after a cooldown set to 1s
     def shootBombshell(self, game):
         self.shoot_cooldown = 1
         current_time = time.time()
@@ -133,13 +128,9 @@ class Tank(Widget):
             bombshell.angle = self.cannon_angle
             bombshell.pos = [self.center_x + self.cannon_length * math.cos(bombshell.angle) - bombshell.size[0] / 2,  #type: ignore
                             self.center_y + self.cannon_length * math.sin(bombshell.angle) - bombshell.size[1] / 2]
-            game.bullets.add(bombshell)
+            game.bullets.add(bombshell) 
             game.add_widget(bombshell)
             self.last_shot_time = current_time  # Update last shot time
-
-    
-
-
 
 def counter(fn):
         def _counted(*largs, **kargs):
@@ -149,20 +140,19 @@ def counter(fn):
         return _counted  
 
 class Enemy(Widget):
-    cannon_angle = NumericProperty(0)
+    cannon_angle = NumericProperty(0) #property to store the cannon angle 
     direction = NumericProperty(1)  # 1 for right, -1 for left
 
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-        
+        # Set up the graphical representation of the enemy spaceship and its cannon
         with self.canvas:
             Color(1, 1, 1)
             self.rect = Rectangle(pos=self.pos, size=self.size, source = "enemyship.png" )
             self.cannon_length = 70
             self.cannon_width = 10
-            #Color(0.169, 0.1, 0.169)
             Color(0,0,0,0)
             self.cannon = Line(points=(self.center_x, self.center_y, self.center_x + self.cannon_length, self.center_y + self.cannon_width), width=self.cannon_width)
             
@@ -171,11 +161,12 @@ class Enemy(Widget):
         self.shoot_cooldown = 2  # Set initial cooldown to 2 seconds
         self.last_shot_time = 0.0  # Track the time of the last shot
         self.last_angle_change_time = 0  # Initialize the time of the last angle change
-        self.cooldown_duration = 1  # 5 seconds cooldown
+        self.cooldown_duration = 1  
         self.has_collided= False
         Clock.schedule_interval(self.move, 1 / 60.)  # 60 times per second
         Clock.schedule_interval(self.change_direction, 1)  # Change direction every second
 
+    # Update the rectangle's position, size and cannon points position
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
@@ -196,11 +187,8 @@ class Enemy(Widget):
     def change_direction(self, dt):
         # Randomly change direction
         self.direction = random.choice([-1, 1])
-
-
-            
-
-
+    
+    #cannon angle is set to point downwards
     def set_cannon_angle(self):
             dx = -2.5
             dy = -172.5
@@ -213,17 +201,12 @@ class Enemy(Widget):
 
             return self.cannon_angle
     
-     
-     
-
-
+    #detect collision between enemy spaceship and bullet
     def collide_with_bullet(self, bullet):
         self.has_collided = True 
         return self.collide_widget(bullet)
 
-
-
-
+    #shoot bullet every time shoot_cooldown has elapsed 
     def shoot(self, game):
         current_time = time.time()
         if current_time - self.last_shot_time >= self.shoot_cooldown:
@@ -235,6 +218,7 @@ class Enemy(Widget):
             game.add_widget(bullet)
             self.last_shot_time = current_time  # Update last shot time
 
+    #shoot laser every time shoot_cooldown has elapsed 
     def shootLaser(self, game):
         current_time = time.time()
         if current_time - self.last_shot_time >= self.shoot_cooldown:
@@ -247,6 +231,7 @@ class Enemy(Widget):
             game.add_widget(laser)
             self.last_shot_time = current_time  # Update last shot time
 
+    #shoot bombshel once every sencond 
     def shootBombshell(self, game):
         self.shoot_cooldown = 1
         current_time = time.time()
@@ -259,39 +244,35 @@ class Enemy(Widget):
             game.add_widget(bombshell)
             self.last_shot_time = current_time  # Update last shot time
 
-
-
-
-
-
-
-
-
 class Bullet(Widget):
-    mass = NumericProperty(0.5)
-    speed = NumericProperty(0)
-    time = NumericProperty(0)
-    angle = NumericProperty(0)
+    mass = NumericProperty(0.5) #property to store the mass of the bullet
+    speed = NumericProperty(0) #property to store the speed of the bullet
+    time = NumericProperty(0) #property to store the flight time of the bullet
+    angle = NumericProperty(0) #property to store the angle of the trajectory 
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.size = (10, 10)
+        #set the grapichal component
         with self.canvas:
             Color(1,0.6,0.4)
             self.bullet = Ellipse(pos=self.pos)
 
-        self.bind(pos=self.update_bullet_pos) #type: ignore 
+        self.bind(pos=self.update_bullet_pos) 
 
+    #update the bullet position and size
     def update_bullet_pos(self, *args):
         self.bullet.pos = self.pos
         self.bullet.size = self.size
 
+    #compute the trajectory followed by the bullet during flight time 
     def trajectory(self):
-        self.x += self.speed * math.cos(self.angle) 
-        self.y += self.speed * math.sin(self.angle)  -  self.mass *( self.time + 1)
+        self.x += self.speed * math.cos(self.angle) #implement the actual motion equation
+        self.y += self.speed * math.sin(self.angle)  -  self.mass *( self.time + 1) #adapted equation of motion in the y direction according 
         self.time += 0.5
         return self.angle
 
+    #compute the gravitational distortion on the bullet trajectory operated by the gravitonio
     def gravitational_attraction(self, gravitonio):
         G = 6.67259 *10**(-2)
         M = 2000
@@ -300,6 +281,8 @@ class Bullet(Widget):
         self.y -= (G*M *self.y)/(distance)**3
         self.time += 0.5
 
+
+#custom random number generator, used to generate random positions of objects exluding the area around other objects, so that they don't overlap
 def random_except(start, stop, exclude1, exclude2, exclude3):
     value = random.randrange(start, stop)
     if (value > (exclude1 + 180) or value < (exclude1 - 180)) and ( value > (exclude2 + 180) or value < (exclude2 - 180)) and ( value > (exclude3 + 280) or value < (exclude3 - 280)):
@@ -310,6 +293,7 @@ def random_except(start, stop, exclude1, exclude2, exclude3):
 class Rock(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        #graphical component
         with self.canvas:
             Color(1, 1, 1)
             self.rect = Rectangle(pos=self.pos, size=self.size, source= "rock.png")
@@ -317,26 +301,25 @@ class Rock(Widget):
 
         self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
 
+    #update rect position and size
     def update_rect_pos(self, *args):
         self.rect.pos = self.pos
     
     def update_rect_size(self, *args):
         self.rect.size = self.size
     
+    #detect collision between rock and bullet 
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
 
+    #move the rock to another position, excluding the area around specified objets already present
     def move(self,start, finish, exclude1, exclude2, exclude3):
         self.pos[0] = random_except(start, finish, exclude1, exclude2, exclude3)
-        #self.pos[1] = random.randrange(250, 500)
-    
-    
-    
-    
 
 class Coin(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        #graphical component
         with self.canvas:
             Color(255,255,0)
             self.rect = Ellipse(pos=self.pos, size=self.size)
@@ -344,15 +327,19 @@ class Coin(Widget):
 
         self.bind(pos=self.update_rect_pos, size=self.update_rect_size)
 
+    #update the coin position
     def update_rect_pos(self, *args):
         self.rect.pos = self.pos
     
+    #update the coin size
     def update_rect_size(self, *args):
         self.rect.size = self.size
     
+    #detect collision with bullet
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
 
+    #move the coing in a random range 
     def move(self, elem):
         self.pos[0] = random.randrange( 0, int( Window.width-self.size[0]), int(elem.pos[0]))
         self.pos[1] = random.randrange(int(Window.height/2),int( Window.height -self.size[0]*3), int(elem.pos[1]))
@@ -360,21 +347,29 @@ class Coin(Widget):
 class Wormhole(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        #graphical component
         with self.canvas:
             Color(1, 1, 1)  # Change color as needed
             self.circle = Ellipse(pos=self.pos, size=self.size, source = "wormho.png")
 
         self.bind(pos=self.update_circle_pos, size=self.update_circle_size)
 
+    #update wormhole postion
     def update_circle_pos(self, *args):
         self.circle.pos = self.pos
 
+    #update wormhole size
     def update_circle_size(self, *args):
         self.circle.size = self.size
 
+    #detect collision with bullet
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
     
+    #detect the direction of collision between an object and the wormhole
+    #used in the game to detect the side where the collision between the spaceship and the wormhole takes place, so as to continue 
+    #from the other wormhole in the right direction. 
+    #So if the collision is detected from the right of the wormhole, the spaceship will move from the other wormhole to the left
     def collide_dir(self, obj2):
         left1 = self.x
         right1 = self.x + self.width
@@ -396,10 +391,10 @@ class Wormhole(Widget):
                 return 'right'
             elif left1 == right2:
                 return 'left'
-            
-        
-    
-class Enemylife(Widget):
+  
+class Enemylife(Widget): 
+    #enemy life counter 
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -408,7 +403,7 @@ class Enemylife(Widget):
             Color(0.5, 0.5, 0.5)
             self.counter = Rectangle(pos=self.pos, size=self.size, source = "vita.png")
  
-        # Initial score
+        # Initial enemy score
         self.enemy_value = 20
 
         # Create a layout for label and counter
@@ -432,15 +427,19 @@ class Enemylife(Widget):
         self.counter.pos = self.pos
         self.layout.pos = self.pos
 
+    #increase the life of 1 point
     def score(self):
         self.enemy_value += 1
         self.label.text = str(self.enemy_value)  # Update label text with new score
 
+    #decrease the life of 1 point
     def descore(self,value=1):
         self.enemy_value -= value
-        self.label.text = str(self.enemy_value)
+        self.label.text = str(self.enemy_value)  # Update label text with new score
 
 class CoinsCounter(Widget):
+    #coins number counter
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -463,7 +462,7 @@ class CoinsCounter(Widget):
         self.add_widget(self.layout)
 
         # Binding position and size update methods
-        self.bind(size=self.update_rect_size, pos = self.update_rect_pos) #type: ignore 
+        self.bind(size=self.update_rect_size, pos = self.update_rect_pos) 
 
     def update_rect_size(self, *args):
         self.counter.size = self.size
@@ -473,11 +472,14 @@ class CoinsCounter(Widget):
         self.counter.pos = self.pos
         self.layout.pos = self.pos
 
+    #increase the counter value of 1 coin
     def score(self):
         self.score_value += 1
         self.label.text = str(self.score_value)  # Update label text with new score
 
 class LifeCounter(Widget):
+    #player life counter
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -486,7 +488,7 @@ class LifeCounter(Widget):
             Color(1, 1, 1)
             self.counter = Rectangle(pos=self.pos, size=self.size, source = "vita.png")
 
-        # Initial score
+        # Initial player life score
         self.life_value = 5
 
         # Create a layout for label and counter
@@ -518,7 +520,7 @@ class LifeCounter(Widget):
         self.life_value += num
         self.label.text = str(self.life_value)  # Update label text with new score
 
-class PerpetuoPlatform(Widget):
+class PerpetuoPlatform(Widget):  #perpetio indestructible rock
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas:
@@ -534,16 +536,11 @@ class PerpetuoPlatform(Widget):
     def update_rect_size(self, *args):
         self.rect.size = self.size
     
+    #detect collision with bullet
     def collide_with_bullet(self, bullet):
         return self.collide_widget(bullet)
 
-    def move(self,start, finish, exclude1, exclude2, exclude3):
-        self.pos[0] = random_except(start, finish, exclude1, exclude2, exclude3)
-        #self.pos[1] = random.randrange(250, 500)
-    
-
-
-class Powerbar(Widget):
+class Powerbar(Widget): 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -561,6 +558,7 @@ class Powerbar(Widget):
     def update_power_pos(self, *args):
         self.power.pos = self.pos
 
+    #increase the power bar size, used to increase the speed of the bullet and to the range 
     def increase_size(self):
         self.size[0] = self.size[0] + 8
 
@@ -568,16 +566,16 @@ class Powerbar(Widget):
         self.size[0] = self.size[0] - 8
 
 class Bombshell(Widget):
-    mass = NumericProperty(1)
-    speed = NumericProperty(0)
-    time = NumericProperty(0)
-    angle = NumericProperty(0)
+    mass = NumericProperty(1) #property to store the mass 
+    speed = NumericProperty(0) #property to store the speed 
+    time = NumericProperty(0) #property to store the time 
+    angle = NumericProperty(0) #property to store the angle of trajectory  
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.size = (30, 30)
-        self.has_collided = False
-        self.exploded = False
+        self.size = (30, 30) #set size
+        self.has_collided = False #check if collision is detected
+        self.exploded = False #check if explosion is detected
         with self.canvas:
             Color(1, 1, 1)
             self.bullet = Ellipse(pos=self.pos, source = "Cartoon-Bomb-Clipart.png")
@@ -588,31 +586,31 @@ class Bombshell(Widget):
         self.bullet.pos = self.pos
         self.bullet.size = self.size
 
+    #compute bombshell trajectory
     def trajectory(self):
         self.x += self.speed * math.cos(self.angle) 
         self.y += self.speed * math.sin(self.angle)  -  self.mass *( self.time + 1)
         self.time += 0.5
     
+    #creates an explosion on the place of the bomb 
     def explode(self,delay):
         self.exploded = True
-        #self.speed = 0
-         # Explode after 1 second
-       # self.canvas.clear()
+    
         self.mass = 999
         with self.canvas:
             Color(1, 1, 1)  # Example color
             Ellipse(pos=self.pos, size=(60, 60), source = "esplosione.png")
         self.pos = (50000, 50000)
         
-
+    #delete the bomb 
     def clear_from_ground(self,dt):
         self.canvas.clear()
         
 class Laser(Widget):
-    mass = NumericProperty(0.5)
-    speed = NumericProperty(0)
-    time = NumericProperty(0)
-    angle = NumericProperty(0)
+    mass = NumericProperty(0.5) #property to store the laser mass
+    speed = NumericProperty(0) #property to store the laser speed
+    time = NumericProperty(0) #property to store the laser flight time 
+    angle = NumericProperty(0) #property to store the laser trajectory angle
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -622,36 +620,33 @@ class Laser(Widget):
         with self.canvas:
             PushMatrix()
             Color(0,0.9,0)
-            self.rotation = Rotate(angle=self.angle, origin=self.center)
+            self.rotation = Rotate(angle=self.angle, origin=self.center) #set origin as pivot point of rotation
             self.laser = Rectangle(pos=self.pos, size=self.size)
             PopMatrix()
 
         self.bind(pos=self.update_laser_pos)  
 
         
-
+    #update the laser origin of rotation, angle, size and position 
     def update_laser_pos(self, *args):
         self.rotation.origin = self.center
         self.rotation.angle = self.angle
         self.laser.pos = self.pos
         self.laser.size = self.size
 
-    
-    
-
+    #compute the laser trajecotry 
     def trajectory(self):
         self.x += self.speed  *math.cos(math.radians(self.angle)) 
         self.y += self.speed  *math.sin(math.radians(self.angle)) 
         self.time += 0.5
        
-
 class Mirror(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas:
             Color(0.68, 0.85, 0.9)
             PushMatrix()
-            self.rotation = Rotate(angle= 0, origin=self.center)
+            self.rotation = Rotate(angle= 0, origin=self.center) #the the rotation angle and origin of rotation
             self.mir = Rectangle(pos=self.pos, size=(10,100))
             PopMatrix()
             self.size = self.mir.size
@@ -659,34 +654,33 @@ class Mirror(Widget):
 
         self.bind(pos=self.update_mir_pos, size=self.update_mir_size)
 
+    #updates mirror position and rotation origin
     def update_mir_pos(self, *args):
         self.mir.pos = self.pos
         self.rotation.origin = self.center
 
-    
+    #update mirror size
     def update_mir_size(self, *args):
         self.mir.size = self.size
     
+    #detect collision with bullet
     def collide_with_bullet(self, bullet):
-            #if bullet.pos[0] == self.pos[0] and bullet.y <= self.pos[1] <= self.size[1]:
-                #return True 
             return self.collide_widget(bullet)
         
-        
-
-    def move(self):#should we call it "changepos" ?
+    #move the mirror in a random range 
+    def move(self):
         self.pos[0] = random.randrange(0,929)
         self.pos[1] = random.randrange(355,600)
 
 class Gravitonio(Widget):
-    mass =NumericProperty(2)
-    #radius = NumericProperty(10000)
+    mass =NumericProperty(2) #property to store the mass of gravitonio
+   
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         with self.canvas:
-            Color(1, 1, 1)  # Black color
+            Color(1, 1, 1) 
             self.circle = Ellipse(pos=self.pos, size=self.size, source = "gravitonio.png")
 
         # Bind position and size updates to the update method
@@ -696,18 +690,18 @@ class Gravitonio(Widget):
         self.circle.pos = self.pos
         self.circle.size = self.size
 
+    #detect the collision with the bullet in a radius called "distance"
     def collide_with_bullet(self, bullet):
-        #bullet.center_x = bullet.size[0] /2
-        #bullet.center_y = bullet.size[1] /2
+
+        # Calculate the distance between the object and the bullet using the Euclidean distance formula
         distance = math.sqrt((self.pos[0]-bullet.pos[0])**2 +((self.pos[1]+ self.size[1]/2) -bullet.pos[1])**2)
+        
+        # If the calculated distance is less than or equal to 150, a collision is detected
         if distance <= 150:
-            return True     
+            return True     #collision detected 
         else:
-            return False 
+            return False  #no collision detected 
     
-    #togliere l'ellisse grande e scrivere la proprità raggio, usare quella per definire l funzione collide + cercare equazione della traiettoria 
-
-
 
 class Shield(Widget):
     alpha = NumericProperty(0)
@@ -743,9 +737,7 @@ class Shield(Widget):
             return False  # Ignore collision if the shield is invisible
         return self.collide_widget(bullet)
     
- 
-
-class CannonGame(Widget):# properties of objects should be in class
+class CannonGame(Widget):
     tank = ObjectProperty(None)
     rock = ObjectProperty(None)
     wormhole = ObjectProperty(None)
@@ -765,8 +757,8 @@ class CannonGame(Widget):# properties of objects should be in class
             Color(1, 1, 1)
             
             self.wallpaper = Rectangle(pos=(0, 0), size=(Window.width, Window.height), source = "sfondo2.jpg")
-            #Color(1, 1, 1)
-            #self.soil = Rectangle(pos=(0, 0), size=(Window.width, Window.height / 3), source = "ground.png")
+            
+
         # Initialize tank
         self.tank = Tank()
         self.tank.size_hint = (None, None)
@@ -774,15 +766,14 @@ class CannonGame(Widget):# properties of objects should be in class
         self.tank.size = (150, 150)
         self.add_widget(self.tank)
 
+        # Initialize shield
         self.shield = Shield()
         self.shield.size_hint = (None, None)
         self.shield.pos = (0, 150)
         self.shield.size = (155, 155)
         self.add_widget(self.shield)
         
-
-
-
+        # Initialize enemy
         self.enemy = Enemy()
         self.enemy.size_hint = (None, None)
         self.enemy.pos = (Window.width/2 - self.enemy.size[0]*2, Window.height / 1.5)
@@ -790,7 +781,7 @@ class CannonGame(Widget):# properties of objects should be in class
         self.enemy.set_cannon_angle()
         self.add_widget(self.enemy)
 
-
+        # Initialize keys and bullets sets
         self.keys_pressed = set()
         self.bullets = set()
         self.enemy_bullets = set()
@@ -802,52 +793,47 @@ class CannonGame(Widget):# properties of objects should be in class
         self.rock.size = (90, 90)
         self.add_widget(self.rock)
 
+        # Initialize perpetuo platform
         self.perpetuo = PerpetuoPlatform()
-        self.perpetuo.size = (200, 90)
-        self.perpetuo.pos = (400,400)
-        self.add_widget(self.perpetuo)
-
-       
-
-
-
-        # Initialize wormholes
-        self.enter_wormhole = Wormhole()
-        self.add_widget(self.enter_wormhole)
-        self.enter_wormhole.pos = (Window.width / 2, 180)
-        self.enter_wormhole.size= (100, 100)
         
 
+        self.enter_wormhole = Wormhole()
         self.exit_wormhole = Wormhole()
-        self.add_widget(self.exit_wormhole)
-        self.exit_wormhole.pos = (Window.width / 2 + 280, Window.height / 2)
-        self.exit_wormhole.size =  (100, 100)
 
+
+        #set levels 
         if self.level == 1:
             self.rock.pos = (Window.width/2 +100, 390)
+            self.perpetuo.size = (200, 90)
+            self.perpetuo.pos = (900,400)
+            self.add_widget(self.perpetuo)
             
-        """"elif self.level == 2:
+        elif self.level == 2:
             
-            self.add_widget(self.enter_wormhole)
+        # Initialize wormholes
+            #self.enter_wormhole = Wormhole()
             self.enter_wormhole.pos = (Window.width / 2, 180)
             self.enter_wormhole.size= (100, 100)
-            
+            self.add_widget(self.enter_wormhole)
 
-            self.add_widget(self.exit_wormhole)
+            #self.exit_wormhole = Wormhole()
             self.exit_wormhole.pos = (Window.width / 2 + 280, Window.height / 2)
-            self.exit_wormhole.size =  (100, 100)"""
+            self.exit_wormhole.size =  (100, 100)
+            self.add_widget(self.exit_wormhole)
 
-
+        # Initialize enemy life counter
         self.counter = Enemylife() 
         self.add_widget(self.counter)
         self.counter.pos = (0,Window.height - self.counter.size[1])
         self.counter.size = (80, 80)
 
+         # Initialize coins counter
         self.coinscounter = CoinsCounter()  
         self.coinscounter.pos = (Window.width - self.coinscounter.size[0],Window.height - self.coinscounter.size[1])
         self.coinscounter.size = (80, 80)
         self.add_widget(self.coinscounter)
         
+        # Initialize life counter
         self.lifecounter = LifeCounter()  
         self.lifecounter.pos = (Window.width/2 ,Window.height - self.lifecounter.size[1])
         self.lifecounter.size = (80, 80)
@@ -859,18 +845,20 @@ class CannonGame(Widget):# properties of objects should be in class
         self.add_widget(self.mirror)
         self.mirror.pos= (Window.width -self.size[0],500)
 
+        # Initialize gravitonio
         self.gravitonio = Gravitonio()  
         self.gravitonio.pos = (500,500)
         self.gravitonio.size = (90, 90)
         self.add_widget(self.gravitonio)
 
+        # Initialize coin
         self.coin = Coin()  
         self.coin.pos = (260,328)
         self.coin.size = (30, 30)
         self.add_widget(self.coin)
         
        
-
+        # Initialize power bar
         self.power = Powerbar()
         self.power.pos = (self.counter.width + 5 ,Window.height - self.power.size[1])
         self.power.size = (150, 50)
@@ -879,18 +867,6 @@ class CannonGame(Widget):# properties of objects should be in class
             Rectangle(pos= self.power.pos, size=(500, 60), source = "energia.jpg")
         self.add_widget(self.power)
         
-
-        #armory_button = Button(
-        #    text='armory',
-        #    size_hint=(0.2, 0.2),
-        #    pos_hint={'center_x': 0.5, 'center_y': 0.8},
-        #    font_size=37,
-        #    background_color=(0,0,0)
-        #)
-
-        
-        #armory_button.bind(on_release=self.ChooseWeapon())
-        #self.add_widget(armory_button)
 
         # Bind keyboard and mouse events
         Window.bind(on_key_down=self.on_keyboard_down, on_key_up=self.on_keyboard_up)
@@ -901,17 +877,17 @@ class CannonGame(Widget):# properties of objects should be in class
         # Custom reinitialization method
         self.__init__()
 
-    def initializeGame(self): #move almost everything from init here because init is called too early(before we choose the level)
+    def initializeGame(self): 
         print( "level is", self.level)
 
 
-    def on_enter(self): #we need to call it to change levels because it is initialized with level 0, but we want to initialize it with level according to variable
-        #as an alternative we can write a class for each level but it is gonna be a mess
+    def on_enter(self): 
         # Called when the screen is displayed
         self.clear_widgets()
         self.add_widget(Label(text=f'Cannon Game Level: {self.level}'))
        
 
+    # Remove widget with a delay if it's a Bombshell and hasn't exploded
     def remove_with_delay(self, widget,*largs):
         if isinstance(widget, Bombshell) and not widget.exploded:
             widget.exploded = True
@@ -920,14 +896,12 @@ class CannonGame(Widget):# properties of objects should be in class
             self.remove_widget(widget)
 
     
-    
+    # Update game state
     def update(self, dt):
         angle = self.tank.set_cannon_angle(self.mouse)
         Laser.angle = math.degrees(angle)
         
         self.enemy.set_cannon_angle()
-
-        
 
         if 100 in self.keys_pressed:
             self.tank.move_right()
@@ -945,25 +919,23 @@ class CannonGame(Widget):# properties of objects should be in class
             self.tank.shootLaser(self)
         if 98 in self.keys_pressed: #shoot bombshell (b)
             self.tank.shootBombshell(self)
-        if self.lifecounter.life_value == 0:
-            #global username
-            #Clock.unschedule(self.update)
-            #self.SaveScore(username, 20 - self.counter.enemy_value )
+        if self.lifecounter.life_value <= 0: #if pler life is less or equal to zero go to game over page and save ememy life left
             Game_over.EnemyLF= self.counter.enemy_value   #set enemy life left to the current Enemy life counter value 
-            
             screen_manager.current = 'game_over'
         
+        #If enemy life counter is smaller or equal to zero go to win screen
         if self.counter.enemy_value <= 0:
             screen_manager.current = 'game_win'
         
+        #initialize set of bullets to remove
         bullets_to_remove = set()
         
         #functions to dectect where the collision between the tank and wormhole took place, so to keep going in the same direction from the other wormhole
         enter_collide_dir = self.enter_wormhole.collide_dir(self.tank)
         exit_collide_dir = self.exit_wormhole.collide_dir(self.tank)
 
-
-        #the more coins you have the more you can use the laser 
+        # Laser cooldown based on coins
+        # The more coins the use have the more he can use the laser 
         if self.coinscounter.score_value >= 10 and self.coinscounter.score_value >= 19:
             self.tank.laser_shoot_cooldown = 1
         
@@ -971,7 +943,7 @@ class CannonGame(Widget):# properties of objects should be in class
             self.tank.laser_shoot_cooldown = 0.3
          
         
-
+        # Shield activation based on coins and key press
         if self.coinscounter.score_value >= 2 and 101 in self.keys_pressed and self.shield.shield_power > 0:  #if you have more than 2 coins and E is pressed you get a shield 
             self.shield.alpha = 0.6   #the shield is always on the spaceship but it becomes visible only if the condition is satisfied
             if self.shield.shield_power == 2:
@@ -982,14 +954,15 @@ class CannonGame(Widget):# properties of objects should be in class
         else:
             self.shield.alpha = 0
                 
-        self.shield.move_with(self.tank) #makes the shield always stay on the spaceship 
+        #makes the shield always stay on the spaceship 
+        self.shield.move_with(self.tank) 
         
         
         
         self.enemy.shoot(self)
         
     
-        #sort of gravity
+        #Gravity effect on spaceship 
         if self.tank.y > 150:
             self.tank.y -= 2.5
         else:
@@ -997,15 +970,17 @@ class CannonGame(Widget):# properties of objects should be in class
         
         
 
-        
+        # Process each bullet in the self.bullets set
         for bullet in self.bullets:
+
+            # Set the bullet's speed based on its type
             if not isinstance(bullet, Laser):
                 bullet.speed = self.power.size[0]/30
             else: 
                 bullet.speed = 20
 
             
-
+            # Check if the bullet collides with the shield
             if self.shield.collide_with_bullet(bullet):
                 self.shield.shield_power -= 1
                 bullets_to_remove.add(bullet)
@@ -1015,13 +990,13 @@ class CannonGame(Widget):# properties of objects should be in class
                 
 
                 
-            
+            # Check if the bullet collides with the rock
             if self.rock.collide_with_bullet(bullet):
                 if isinstance(bullet, Bombshell):
                     bullet.mass = 0
                     bullet.speed = 0
-                    bullet.pos = bullet.pos 
-                    Clock.schedule_once(bullet.explode, 2)  
+                    bullet.pos = bullet.pos  #make the bombshell stay on the place of collision
+                    Clock.schedule_once(bullet.explode, 2)  # Schedule the explosion
                     def code_to_execute(dt):
                         self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0], self.rock.size[0] )
 
@@ -1030,21 +1005,21 @@ class CannonGame(Widget):# properties of objects should be in class
                         Clock.schedule_once(partial(self.remove_with_delay, bullet), 3)
                         bullet.has_collided = True
                 else:
-                    bullets_to_remove.add(bullet)
+                    bullets_to_remove.add(bullet) # Mark the bullet for removal
                     self.rock.move(0, Window.width - self.rock.size[0], self.tank.pos[0], self.enter_wormhole.pos[0], self.rock.size[0] )
                     
 
-
+            # Check if the bullet collides with the enemy
             if self.enemy.collide_with_bullet(bullet):
                 if isinstance(bullet, Bombshell):
                     bullet.mass = 0
                     bullet.speed = 0
-                    bullet.pos = bullet.pos 
-                    Clock.schedule_once(bullet.explode, 2)  
+                    bullet.pos = bullet.pos  # Keep the bullet's position
+                    Clock.schedule_once(bullet.explode, 2)   # Schedule the explosion
                     def code_to_execute(dt):
-                        self.counter.descore(3)
+                        self.counter.descore(3)  # Decrease the enemy's score
                         
-
+                    #remove collided bullets
                     if not bullet.has_collided:
                         Clock.schedule_once(code_to_execute, 2)
                         Clock.schedule_once(partial(self.remove_with_delay, bullet), 3)
@@ -1052,15 +1027,15 @@ class CannonGame(Widget):# properties of objects should be in class
                 else:
                     bullets_to_remove.add(bullet)
                     if isinstance(bullet, Laser):
-                        self.counter.descore(2)
+                        self.counter.descore(2) #descore two points if enemy collides with laset
                     else:
-                        self.counter.descore()
+                        self.counter.descore() 
 
                     self.remove_widget(bullet)
-                    bullet.pos = (0,500000)
+                    bullet.pos = (0,500000) #move the hitbox 
 
                 
-
+            # Check if the bullet is on the ground
             if bullet.pos[1] <= 150:
                 if isinstance(bullet, Bombshell):
                     bullet.mass = 0
@@ -1069,7 +1044,7 @@ class CannonGame(Widget):# properties of objects should be in class
                     Clock.schedule_once(bullet.explode, 2)
                     Clock.schedule_once(bullet.clear_from_ground,2.1)
                     Clock.schedule_once(partial(self.remove_with_delay, bullet), 3 )
-                    #self.remove_widget(bullet)
+                    
 
                 else:
                     bullets_to_remove.add(bullet)
@@ -1077,14 +1052,14 @@ class CannonGame(Widget):# properties of objects should be in class
 
             if self.mirror.collide_with_bullet(bullet): #if bullet is laser change angle if bullet destroy
                 if isinstance(bullet, Laser):
-                    bullet.angle = bullet.angle +180 - 2* bullet.angle
+                    bullet.angle = bullet.angle +180 - 2* bullet.angle #reflect the laser
                 elif isinstance(bullet, Bombshell):
                     bullet.mass = 0
                     bullet.speed = 0
-                    bullet.pos = bullet.pos #later we can just call the explode function and write this shit there
+                    bullet.pos = bullet.pos 
                     def code_to_execute(dt):
-                        self.counter.score()
-                        self.mirror.move()
+                        self.counter.score() 
+                        self.mirror.move() #move mirror in another position
                     
                     Clock.schedule_once(bullet.explode, 2) 
                     if not bullet.has_collided:
@@ -1092,12 +1067,10 @@ class CannonGame(Widget):# properties of objects should be in class
                         Clock.schedule_once(partial(self.remove_with_delay, bullet), 3)
                         bullet.has_collided = True 
                 elif isinstance(bullet, Bullet):
-                    self.remove_widget(bullet)
+                    self.remove_widget(bullet) #remove the bullet widget
 
-                #elif isinstance(bullet, Bullet):
-                    #bullets_to_remove.add(bullet)
-                    #self.mirror.move()
-                    
+                
+            # Check if the bullet collides with the perpetuo platform
             if self.perpetuo.collide_with_bullet(bullet):
                 if isinstance(bullet, Bombshell):
                     bullet.mass = 0
@@ -1107,19 +1080,22 @@ class CannonGame(Widget):# properties of objects should be in class
                 else:
                     self.remove_widget(bullet)
 
+            # Check if the bullet collides with the entry wormhole
             if self.enter_wormhole.collide_with_bullet(bullet):
                 bullet.pos = self.exit_wormhole.center
             
+            # Apply gravitational attraction if bullet collides with gravitonio
             if isinstance(bullet, Bullet):
                 if self.gravitonio.collide_with_bullet(bullet):
 
                     bullet.gravitational_attraction(self.gravitonio)
             
+            # Check if the bullet collides with the coin
             if self.coin.collide_with_bullet(bullet):
                 self.coin.move(self.enemy)
                 self.coinscounter.score()
 
-
+        # Handle collision with the tank and the wormhole
         if self.enter_wormhole.collide_with_bullet(self.tank): 
             if enter_collide_dir == 'left':
                 self.tank.pos = (self.exit_wormhole.center_x + 200, self.exit_wormhole.center_y )
@@ -1136,7 +1112,7 @@ class CannonGame(Widget):# properties of objects should be in class
         
        
         
-        #enemy's bullets are different from ours, the enemy's one do not detroy neither the rock nor the mirror, the laser is still reflected. 
+        #enemy's bullets are different from player's, the enemy's one do not detroy neither the rock nor the mirror, the laser is still reflected. 
         #Also the relation between the size of thhe power bar and the velocity of the bullet is preserved.
         for bullet in self.enemy_bullets:
             bullet.speed = self.power.size[0]/30
@@ -1145,16 +1121,17 @@ class CannonGame(Widget):# properties of objects should be in class
             if self.perpetuo.collide_with_bullet(bullet): #if enemy bullet collides with perpetuo, bullet gets destroyed
                 self.remove_widget(bullet)
 
+            #Shield is damed of one point when hit by a bullet of any kind 
             if self.shield.collide_with_bullet(bullet):
                 self.shield.shield_power -= 1
                 bullets_to_remove.add(bullet)
                 bullet.pos = (0,500000)
 
-
+            #if tank collides with bullet loses one point 
             if self.tank.collide_with_bullet(bullet):
                 self.lifecounter.descore()
                 self.remove_widget(bullet)
-                bullet.pos = (0,500000)
+                bullet.pos = (0,500000) #hitbox is move away
             
             
 
@@ -1163,46 +1140,42 @@ class CannonGame(Widget):# properties of objects should be in class
                 if isinstance(bullet, Laser):
                     bullet.angle = bullet.angle +180 - 2* bullet.angle
                     
-            
+            #if bullet collides with enter wormhole the bullet is moved to the center of the exitwormhole
             if self.enter_wormhole.collide_with_bullet(bullet):
                 bullet.pos = self.exit_wormhole.center
             
+            #if a bullet collides with gravitonio or is in its radius then the trajectory changes accordingly 
             if isinstance(bullet, Bullet):
                 if self.gravitonio.collide_with_bullet(bullet):
-
                     bullet.gravitational_attraction(self.gravitonio)
 
+            #if tank collides with the enterwormhole it is moved to a position close to the exit wormhole
             if self.enter_wormhole.collide_with_bullet(self.tank): 
                 self.tank.pos = (self.exit_wormhole.center_x - 250, self.exit_wormhole.center_y )
         
+            #if tank collides with the exit wormhole it is moved to a position close to the enter wormhole
             if self.exit_wormhole.collide_with_bullet(self.tank): 
                 self.tank.pos = (self.enter_wormhole.center_x - 250, self.enter_wormhole.y )
                     
         
         
        
-            
+        #apply trajectory function on each bullet
         for bullet in self.bullets:
             bullet.trajectory()
 
+            #if tank collides with bulle tthe tank loses one life point and the hit box of the bullet is moved to prevent other collision 
             if self.tank.collide_with_bullet(bullet):
                 self.lifecounter.descore()
                 self.remove_widget(bullet)
                 bullet.pos = (0,500000)
 
 
-
         # Remove collided bullets
         for bullet in bullets_to_remove:
             self.remove_widget(bullet)
 
-        
-        
-      
-        
-    
-    
-    
+    # Keyboard and mouse event handlers
     def on_keyboard_down(self, keyboard, keycode, *args):
         self.keys_pressed.add(keycode)
 
@@ -1222,6 +1195,7 @@ class HallOfFame(Screen):
 
         button_color = (0, 0, 0, 0.8)
 
+        #add buttons
         self.back_button = Button(
             text='Back',
             size_hint=(0.3, 0.2),
@@ -1229,7 +1203,7 @@ class HallOfFame(Screen):
             font_size=37,
             background_color=button_color
         )
-        self.back_button.bind(on_release=self.GoMainMENU)
+        self.back_button.bind(on_release=self.GoMainMENU) 
         self.add_widget(self.back_button)
 
         self.scores_button = Button(
@@ -1247,73 +1221,94 @@ class HallOfFame(Screen):
         self.add_widget(self.scores_layout)
 
     def GoMainMENU(self, instance):
-        app.cannon_game.reinitialize()
+        app.cannon_game.reinitialize() #reinizialize the game to the intial condition
         self.manager.current = 'main_menu'
 
+    # Method to retrieve and display scores
     def get_scores(self, instance):
-        filename = "scores.txt"
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        file_path = os.path.join(curr_path, filename)
+        filename = "scores.txt" # Define the filename where scores are stored
+        curr_path = os.path.dirname(os.path.realpath(__file__)) # Get the current file's directory
+        file_path = os.path.join(curr_path, filename) # Construct the full path to the scores file
         
+        # Check if the scores file exists
         if not os.path.exists(file_path):
             scores_text = "No scores available."
         else:
+            # Open the scores file and read its contents
             with open(file_path, 'r') as file:
                 scores_text = file.read()
 
         # Clear the previous scores (if any) but keep the back button and other elements
         self.scores_layout.clear_widgets()
         
+        # Create a label with the scores text
         score_label = Label(
             text=scores_text,
             color=(1, 1, 1, 1),
             font_size=35
         )
-        self.scores_layout.add_widget(score_label)
+        self.scores_layout.add_widget(score_label) # Add the label to the scores layout
 
+    # Method to start the game
     def play(self, instance):
         app.cannon_game.reinitialize()
         self.manager.current = 'cannon_game'
 
+    # Method to update the position and size of a rectangle
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
-
 
 class MainMenuBackground(Widget):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Bind the position and size of the widget to the update_rect method
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
+            # Draw a rectangle with the background image
             self.rect = Rectangle(source="back2.jpg", pos=self.pos, size=self.size)
 
+    # Method to update the position and size of the rectangle
     def update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-
-
+# MainMenu class inherits from Screen and represents the main menu of the game
 class MainMenu(Screen):
+    # Method to show a welcome message with instructions
     def show_welcome(self, instance):
-        welcome_text = 'Welcome, here are some instruction to play this game: \n - press "a" and "d" to move left and right, \n -press "w" to shoot bullets, spacebar for laser and b for bombshell, \n -after you collected two or more coins you get access to the shield, activate it with "e", \n -press "p" and "l" to increase or decrease the power'
+        welcome_text = (
+            'Welcome, here are some instructions to play this game:\n'
+            '- Press "a" and "d" to move left and right,\n'
+            '- Press "w" to shoot bullets, spacebar for laser, and "b" for bombshell,\n'
+            '- After collecting two or more coins, activate the shield with "e",\n'
+            '- Press "p" and "l" to increase or decrease the power,\n'
+            '- Use the mouse to move the cannon'
+        )  
+        # Create and open a popup with the welcome text
         popup = Popup(title="Welcome", content=Label(text=welcome_text), size_hint=(None, None), size=(750, 300))
         popup.open()
 
+    # Method to start the game
     def play(self, instance):
-        self.manager.current = 'cannon_game'
+        self.manager.current = 'cannon_game'  # Switch to the game screen
     
+    # Method to stop the application
     def stop(self, instance):
-        CannonApp().stop()
+        CannonApp().stop()  # Stop the application
 
+    # Method to go to the levels screen
     def GoToLevels(self, instance):
-        self.manager.current = 'levels'
+        self.manager.current = 'levels'  # Switch to the levels screen
 
+    # Constructor method for the MainMenu class
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.add_widget(MainMenuBackground())
+        self.add_widget(MainMenuBackground())  # Add the background widget to the screen
 
-        button_color = (0,0,0,0.8)
+        button_color = (0,0,0,0.8) # Define a common button background color
 
+        # Create and configure the welcome button
         welcome_button = Button(
             text="Instructions",
             size_hint=(0.2, 0.2),
@@ -1322,20 +1317,22 @@ class MainMenu(Screen):
             background_color=button_color
         )
 
-        welcome_button.bind(on_release=self.show_welcome)
-        self.add_widget(welcome_button)
+        welcome_button.bind(on_release=self.show_welcome)  # Bind the button to the show_welcome method
+        self.add_widget(welcome_button)  # Add the button to the screen
 
+        # Create and configure the play button
         play_button = Button(
-            text='Play',
+            text='Arcade',
             size_hint=(0.2, 0.2),
             pos_hint={'center_x': 0.5, 'center_y': 0.6},
             font_size=37,
             background_color=button_color
         )
 
-        play_button.bind(on_release=self.play)
-        self.add_widget(play_button)
+        play_button.bind(on_release=self.play)  # Bind the button to the play method
+        self.add_widget(play_button)  # Add the button to the screen
 
+        # Create and configure the levels button
         levels_button = Button(
             text='Levels',
             size_hint=(0.2, 0.2),
@@ -1348,6 +1345,7 @@ class MainMenu(Screen):
         self.add_widget(levels_button)
 
 
+        # Create and configure the exit button
         exit_button = Button(
             text='Exit',
             size_hint=(0.2, 0.2),
@@ -1355,10 +1353,10 @@ class MainMenu(Screen):
             font_size=37,
             background_color=button_color
         )
+        exit_button.bind(on_release=self.stop)  # Bind the button to the stop method
+        self.add_widget(exit_button)  # Add the button to the screen
 
-        exit_button.bind(on_release=self.stop)
-        self.add_widget(exit_button)
-
+        # Create and configure the hall of fame button
         fame_button = Button(
             text='Hall of Fame',
             size_hint=(0.2, 0.2),
@@ -1366,36 +1364,39 @@ class MainMenu(Screen):
             font_size=37,
             background_color=button_color
         )
+        fame_button.bind(on_release=self.show_score)  # Bind the button to the show_score method
+        self.add_widget(fame_button)  # Add the button to the screen
 
-        fame_button.bind(on_release=self.show_score)
-        self.add_widget(fame_button)
-
+    # Method to show the hall of fame screen
     def show_score(self, instance):
-        self.manager.current = 'hall_of_fame'
+        self.manager.current = 'hall_of_fame'  # Switch to the hall of fame screen
 
+# Levels class inherits from Screen and represents the levels selection screen
 class Levels(Screen):
-    level_defined = False 
-    def play(self, instance,level):
-        self.level_defined = True
-        CannonGame.level = level 
-        screen_manager.current= "get_username"
+    level_defined = False  # Class attribute to track if a level has been selected
 
-        
-        
-        
-        
+    # Method to start the game at the selected level
+    def play(self, instance, level):
+        self.level_defined = True  # Set the level_defined attribute to True
+        CannonGame.level = level  # Set the selected level in the CannonGame class
+        screen_manager.current = "get_username"  # Switch to the username input screen
 
+    # Method to go back to the main menu
     def GoMainMENU(self, instance):
-        self.manager.current = 'main_menu'
-    
+        self.manager.current = 'main_menu'  # Switch to the main menu screen
+
+    # Constructor method for the Levels class
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Bind the position and size of the widget to the update_rect method
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
+            # Draw a rectangle with the background image for the levels screen
             self.rect = Rectangle(source="levels.jpg", pos=self.pos, size=self.size)
 
-        button_color = (0,0,0,0.8)
+        button_color = (0, 0, 0, 0.8)  # Define a common button background color
 
+        # Create and configure the button for the first level
         first_level = Button(
             text='1',
             size_hint=(0.3, 0.2),
@@ -1403,20 +1404,23 @@ class Levels(Screen):
             font_size=37,
             background_color=button_color
         )
+        # Bind the button to the play method with level 1
         first_level.bind(on_release=lambda instance: self.play(instance, 1))
-        self.add_widget(first_level)
+        self.add_widget(first_level)  # Add the button to the screen
 
-
+        # Create and configure the button for the second level
         second_level = Button(
-                    text='2',
-                    size_hint=(0.3, 0.2),
-                    pos_hint={'center_x': 0.5, 'center_y': 0.7},
-                    font_size=37,
-                    background_color=button_color
-                )
+            text='2',
+            size_hint=(0.3, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.7},
+            font_size=37,
+            background_color=button_color
+        )
+        # Bind the button to the play method with level 2
         second_level.bind(on_release=lambda instance: self.play(instance, 2))
-        self.add_widget(second_level)
+        self.add_widget(second_level)  # Add the button to the screen
 
+        # Create and configure the back button
         back_button = Button(
             text='Back',
             size_hint=(0.3, 0.2),
@@ -1424,287 +1428,350 @@ class Levels(Screen):
             font_size=37,
             background_color=button_color
         )
-
+        # Bind the button to the GoMainMENU method
         back_button.bind(on_release=self.GoMainMENU)
-        self.add_widget(back_button)
+        self.add_widget(back_button)  # Add the button to the screen
 
+    # Method to update the position and size of the rectangle
     def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
-
-
-class Armory(Screen):
-    
-    def play(self, instance):
-        self.manager.current = 'cannon_game'
-
-    def ChooseWeapon(self):
-        self.manager.current = 'Armory'
-   
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.bind(pos=self.update_rect, size=self.update_rect)
-        with self.canvas:
-            self.rect = Rectangle(source="levels.jpg", pos=self.pos, size=self.size)
-
-        button_color = (0,0,0,0.8)
-
-        bullet_button = Button(
-            text='Bullet',
-            size_hint=(0.3, 0.2),
-            pos_hint={'center_x': 0.2, 'center_y': 0.7},
-            font_size=37,
-            background_color=button_color
-        )
-
-        bullet_button.bind(on_release=self.play)
-        self.add_widget(bullet_button)
-
-        laser_button = Button(
-            text='Laser',
-            size_hint=(0.3, 0.2),
-            pos_hint={'center_x': 0.5, 'center_y': 0.7},
-            font_size=37,
-            background_color=button_color
-        )
-
-        laser_button.bind(on_release=self.play)
-        self.add_widget(laser_button)
+        self.rect.pos = self.pos  # Update rectangle position to match widget's position
+        self.rect.size = self.size  # Update rectangle size to match widget's size
 
 
 
-
-
-    def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
-
-
+# Game_over class inherits from Screen and represents the game over screen
 class Game_over(Screen):
-    EnemyLF =0
+    EnemyLF = 0  # Class attribute to store the enemy's life points
 
+    # Constructor method for the Game_over class
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Bind the position and size of the widget to the update_rect method
         self.bind(pos=self.update_rect, size=self.update_rect)
         with self.canvas:
-            self.rect = Rectangle(source= "fine.jpg", pos=self.pos, size=self.size)
+            # Draw a rectangle with the background image for the game over screen
+            self.rect = Rectangle(source="fine.jpg", pos=self.pos, size=self.size)
 
+        button_color = (0, 0, 0, 0.8)  # Define a common button background color
 
-        button_color = (0,0,0,0.8)
-
-        """PlayAgain = Button(
-            text='Play again',
-            size_hint=(0.25, 0.2),
-            pos={50,  30},
-            font_size=37,
-            background_color=button_color
-        )
-        PlayAgain.bind(on_release=self.play)
-        #self.add_widget(PlayAgain)"""
-
-        Saveprevious = Button(    #save the previous game score
-            text='Save',
-            size_hint=(0.25, 0.2),
-            pos={400,  30},
-            font_size=37,
-            background_color=button_color
-        )
-        Saveprevious.bind(on_release=self.save)
-        self.add_widget(Saveprevious)
-
-
-        back_button = Button(
-            text='Back',
-            size_hint=(0.25, 0.2),
-            pos={1000,  30},
-            font_size=37,
-            background_color=button_color
-        )
-
-        back_button.bind(on_release=self.GoMainMENU)
-        self.add_widget(back_button)
-
-    def GoMainMENU(self, instance):
-        app.cannon_game.reinitialize()
-        self.manager.current = 'main_menu'
-
-
-    def save(self, instance):
-        global username
-        score = self.EnemyLF  #score is the life points left to the enemy
-        self.SaveScore(username, (20 - score)) #the points are the maximum life of the enemy minus his life left
-        app.cannon_game.reinitialize()
-        self.manager.current = 'hall_of_fame'
-
-    def SaveScore(self, username, score):
-        import os
-        filename = "scores.txt" 
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(curr_path, filename), 'a+') as file:
-            file.write(username + ":" + str(score) + "\n" )  
-
-    def LoadTop(self):
-        
-        results = []
-        usernames = []
-        filename = "scores.txt"
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(curr_path, filename), 'r') as file:
-            line = file.readlines()
-            for i in line: 
-                #spezza ogni linea in username e score
-                stats = i.split(";")
-                results.append(int(stats[1]))
-                usernames.append(stats[0])
-            
-        sorted_res = results.copy()
-        sorted_res.sort(reverse=True)
-        sorted_res = sorted_res[0:5]
-        username_res = []
-        for i in range(len(sorted_res)):
-            el = sorted_res[i]
-            index = results.index(el)
-
-            username_res.append(usernames[index])
-        return usernames[0:5], sorted_res
-    
-    def get_scores(self):
-        filename = "scores.txt"
-        layout = BoxLayout(orientation='vertical')
-        curr_path = os.path.dirname(os.path.realpath(__file__))
-        file_path = os.path.join(curr_path, filename)
-        
-        if not os.path.exists(file_path):
-            return "No scores available."
-
-        with open(file_path, 'r') as file:
-            scores_text = file.read()
-        score_label = Label(text=scores_text)
-        layout.add_widget(score_label)
-        return layout
-
-
-    def play(self,instance):
-        app.cannon_game.reinitialize()
-        screen_manager.current = 'cannon_game' # type: ignore
-    
-    def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
-    
-
-class Game_win(Screen):
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.bind(pos=self.update_rect, size=self.update_rect)
-        with self.canvas:
-            self.rect = Rectangle(source= "winn.jpg", pos=self.pos, size=self.size)
-
-
-        button_color = (0,0,0,0.8)
-
+        # Create and configure the "Play again" button
         PlayAgain = Button(
             text='Play again',
             size_hint=(0.25, 0.2),
-            pos={50,  30},
+            pos={1300, 30},
             font_size=37,
             background_color=button_color
         )
+        # Bind the button to the play method
         PlayAgain.bind(on_release=self.play)
-        self.add_widget(PlayAgain)
+        self.add_widget(PlayAgain)  # Add the button to the screen
 
-    
+        # Create and configure the "Save" button to save the previous game score
+        Saveprevious = Button(
+            text='Save',
+            size_hint=(0.25, 0.2),
+            pos={100, 30},
+            font_size=37,
+            background_color=button_color
+        )
+        # Bind the button to the save method
+        Saveprevious.bind(on_release=self.save)
+        self.add_widget(Saveprevious)  # Add the button to the screen
 
-    def play(self,instance):
-        app.cannon_game.reinitialize()
-        screen_manager.current = 'cannon_game' # type: ignore
+        # Create and configure the "Back" button to go back to the main menu
+        back_button = Button(
+            text='Back',
+            size_hint=(0.25, 0.2),
+            pos={700, 30},
+            font_size=37,
+            background_color=button_color
+        )
+        # Bind the button to the GoMainMENU method
+        back_button.bind(on_release=self.GoMainMENU)
+        self.add_widget(back_button)  # Add the button to the screen
+
+    # Method to go back to the main menu and reinitialize the game
+    def GoMainMENU(self, instance):
+        app.cannon_game.reinitialize()  # Reinitialize the game
+        self.manager.current = 'main_menu'  # Switch to the main menu screen
+
+    # Method to save the game score
+    def save(self, instance):
+        global username
+        score = self.EnemyLF  # Get the enemy's life points
+        # Save the score as the maximum life points (20) minus the enemy's remaining life
+        self.SaveScore(username, (20 - score))
+        app.cannon_game.reinitialize()  # Reinitialize the game
+        self.manager.current = 'hall_of_fame'  # Switch to the hall of fame screen
+
+    # Method to save the score to a file
+    def SaveScore(self, username, score):
+        import os
+        filename = "scores.txt"  # Define the scores file name
+        curr_path = os.path.dirname(os.path.realpath(__file__))  # Get the current path
+        with open(os.path.join(curr_path, filename), 'a+') as file:
+            # Append the username and score to the file
+            file.write(username + ":" + str(score) + "\n")
+
+    # Method to load the top scores from the file
+    def LoadTop(self):
+        results = []
+        usernames = []
+        filename = "scores.txt"  # Define the scores file name
+        curr_path = os.path.dirname(os.path.realpath(__file__))  # Get the current path
+        with open(os.path.join(curr_path, filename), 'r') as file:
+            lines = file.readlines()  # Read all lines from the file
+            for line in lines:
+                # Split each line into username and score
+                stats = line.split(";")
+                results.append(int(stats[1]))
+                usernames.append(stats[0])
+        
+        sorted_res = results.copy()
+        sorted_res.sort(reverse=True)  # Sort the scores in descending order
+        sorted_res = sorted_res[:5]  # Get the top 5 scores
+        username_res = []
+        for el in sorted_res:
+            index = results.index(el)
+            username_res.append(usernames[index])
+        return username_res[:5], sorted_res  # Return the top 5 usernames and scores
+
+    # Method to get and display the scores
+    def get_scores(self):
+        filename = "scores.txt"  # Define the scores file name
+        layout = BoxLayout(orientation='vertical')
+        curr_path = os.path.dirname(os.path.realpath(__file__))  # Get the current path
+        file_path = os.path.join(curr_path, filename)
+
+        if not os.path.exists(file_path):
+            return "No scores available."  # Return message if no scores file exists
+
+        with open(file_path, 'r') as file:
+            scores_text = file.read()  # Read the scores from the file
+        score_label = Label(text=scores_text)
+        layout.add_widget(score_label)  # Add the scores to the layout
+        return layout  # Return the layout with scores
+
+    # Method to start a new game
+    def play(self, instance):
+        app.cannon_game.reinitialize()  # Reinitialize the game
+        screen_manager.current = 'cannon_game'  # Switch to the cannon game screen
     
+    # Method to update the position and size of the rectangle
     def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
+        self.rect.pos = self.pos  # Update rectangle position to match widget's position
+        self.rect.size = self.size  # Update rectangle size to match widget's size
+
+    
+# Game_win class inherits from Screen and represents the game win screen
+class Game_win(Screen):
+    EnemyLF = 0  # Class attribute to store the enemy's life points
+
+    # Constructor method for the Game_win class
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Bind the position and size of the widget to the update_rect method
+        self.bind(pos=self.update_rect, size=self.update_rect)
+        with self.canvas:
+            # Draw a rectangle with the background image for the game win screen
+            self.rect = Rectangle(source="winn.jpg", pos=self.pos, size=self.size)
+
+        button_color = (0, 0, 0, 0.8)  # Define a common button background color
+
+        # Create and configure the "Play again" button
+        PlayAgain = Button(
+            text='Play again',
+            size_hint=(0.25, 0.2),
+            pos=(50, 300),
+            font_size=37,
+            background_color=button_color
+        )
+        # Bind the button to the play method
+        PlayAgain.bind(on_release=self.play)
+        self.add_widget(PlayAgain)  # Add the button to the screen
+
+        # Create and configure the "Save" button to save the previous game score
+        Saveprevious = Button(
+            text='Save',
+            size_hint=(0.25, 0.2),
+            pos=(600, 300),
+            font_size=37,
+            background_color=button_color
+        )
+        # Bind the button to the save method
+        Saveprevious.bind(on_release=self.save)
+        self.add_widget(Saveprevious)  # Add the button to the screen
+
+        # Create and configure the "Back" button to go back to the main menu
+        back_button = Button(
+            text='Back',
+            size_hint=(0.25, 0.2),
+            pos=(1200, 300),
+            font_size=37,
+            background_color=button_color
+        )
+        # Bind the button to the GoMainMENU method
+        back_button.bind(on_release=self.GoMainMENU)
+        self.add_widget(back_button)  # Add the button to the screen
+
+    # Method to go back to the main menu and reinitialize the game
+    def GoMainMENU(self, instance):
+        app.cannon_game.reinitialize()  # Reinitialize the game
+        self.manager.current = 'main_menu'  # Switch to the main menu screen
+
+    # Method to save the game score
+    def save(self, instance):
+        global username
+        score = self.EnemyLF  # Get the enemy's life points
+        # Save the score as the maximum life points (20) minus the enemy's remaining life
+        self.SaveScore(username, (20 - score))
+        app.cannon_game.reinitialize()  # Reinitialize the game
+        self.manager.current = 'hall_of_fame'  # Switch to the hall of fame screen
+
+    # Method to save the score to a file
+    def SaveScore(self, username, score):
+        import os
+        filename = "scores.txt"  # Define the scores file name
+        curr_path = os.path.dirname(os.path.realpath(__file__))  # Get the current path
+        with open(os.path.join(curr_path, filename), 'a+') as file:
+            # Append the username and score to the file
+            file.write(username + ":" + str(score) + "\n")
+
+    # Method to load the top scores from the file
+    def LoadTop(self):
+        results = []
+        usernames = []
+        filename = "scores.txt"  # Define the scores file name
+        curr_path = os.path.dirname(os.path.realpath(__file__))  # Get the current path
+        with open(os.path.join(curr_path, filename), 'r') as file:
+            lines = file.readlines()  # Read all lines from the file
+            for line in lines:
+                # Split each line into username and score
+                stats = line.split(";")
+                results.append(int(stats[1]))
+                usernames.append(stats[0])
+
+        sorted_res = results.copy()
+        sorted_res.sort(reverse=True)  # Sort the scores in descending order
+        sorted_res = sorted_res[:5]  # Get the top 5 scores
+        username_res = []
+        for el in sorted_res:
+            index = results.index(el)
+            username_res.append(usernames[index])
+        return username_res[:5], sorted_res  # Return the top 5 usernames and scores
+
+    # Method to get and display the scores
+    def get_scores(self):
+        filename = "scores.txt"  # Define the scores file name
+        layout = BoxLayout(orientation='vertical')
+        curr_path = os.path.dirname(os.path.realpath(__file__))  # Get the current path
+        file_path = os.path.join(curr_path, filename)
+
+        if not os.path.exists(file_path):
+            return "No scores available."  # Return message if no scores file exists
+
+        with open(file_path, 'r') as file:
+            scores_text = file.read()  # Read the scores from the file
+        score_label = Label(text=scores_text)
+        layout.add_widget(score_label)  # Add the scores to the layout
+        return layout  # Return the layout with scores
+
+    # Method to start a new game
+    def play(self, instance):
+        app.cannon_game.reinitialize()  # Reinitialize the game
+        screen_manager.current = 'cannon_game'  # Switch to the cannon game screen
+
+    # Method to update the position and size of the rectangle
+    def update_rect(self, *args):
+        self.rect.pos = self.pos  # Update rectangle position to match widget's position
+        self.rect.size = self.size  # Update rectangle size to match widget's size
 
 
 username = ""
+# UsernameLayout class inherits from BoxLayout and is used to create the layout for entering the username
 class UsernameLayout(BoxLayout):
     def __init__(self, **kwargs):
         super(UsernameLayout, self).__init__(**kwargs)
-        self.orientation = 'horizontal'
+        self.orientation = 'horizontal'  # Set the layout orientation to horizontal
 
-        # Create a Label
-        self.label = Label(text='Enter username:', color= (0.9, 0.9, 1, 0.9), font_size = 50, size = (50,70))
-        self.add_widget(self.label)
+        # Create a Label to prompt the user to enter a username
+        self.label = Label(text='Enter username:', color=(0.9, 0.9, 1, 0.9), font_size=50, size=(50, 70))
+        self.add_widget(self.label)  # Add the label to the layout
 
-        # Create a TextInput
+        # Create a TextInput for the user to enter the username
         self.input = TextInput()
-        self.add_widget(self.input)
+        self.add_widget(self.input)  # Add the TextInput to the layout
 
-        # Create a Button
-        self.button = Button(text='Press to enter username', background_normal = "sfondo2.jpg", color= (0.9, 0.9, 1, 0.9), font_size = 50)
-        self.button.bind(on_press=self.GetUsername)
-        self.add_widget(self.button)
+        # Create a Button for submitting the username
+        self.button = Button(text='Press to enter username', background_normal="sfondo2.jpg", color=(0.9, 0.9, 1, 0.9), font_size=50)
+        self.button.bind(on_press=self.GetUsername)  # Bind the button to the GetUsername method
+        self.add_widget(self.button)  # Add the button to the layout
 
+    # Method to handle the button press and save the username
     def GetUsername(self, instance):
         global username
-        username = self.input.text
-        screen_manager.current = 'cannon_game'
-        app.cannon_game.clear_widgets()
-        app.cannon_game.reinitialize()
+        username = self.input.text  # Get the text from the TextInput
+        screen_manager.current = 'cannon_game'  # Switch to the cannon game screen
+        app.cannon_game.clear_widgets()  # Clear the current widgets in the cannon game screen
+        app.cannon_game.reinitialize()  # Reinitialize the cannon game
 
-class WriteUsername(Screen): 
+# WriteUsername class inherits from Screen and represents the screen for entering the username
+class WriteUsername(Screen):
     def __init__(self, **kwargs):
         super(WriteUsername, self).__init__(**kwargs)
-        self.bind(pos=self.update_rect, size=self.update_rect) # type: ignore
-        
-        with self.canvas: # type: ignore
-            self.rect = Rectangle(source= "sfondo2.jpg", pos=self.pos, size=self.size)
+        # Bind the position and size of the widget to the update_rect method
+        self.bind(pos=self.update_rect, size=self.update_rect)
 
-        self.add_widget(UsernameLayout()) 
+        with self.canvas:
+            # Draw a rectangle with the background image for the username screen
+            self.rect = Rectangle(source="sfondo2.jpg", pos=self.pos, size=self.size)
 
+        self.add_widget(UsernameLayout())  # Add the UsernameLayout to the screen
 
+    # Method to update the position and size of the rectangle
     def update_rect(self, *args):
-        self.rect.pos = self.pos
-        self.rect.size = self.size
+        self.rect.pos = self.pos  # Update rectangle position to match widget's position
+        self.rect.size = self.size  # Update rectangle size to match widget's size
 
+screen_manager = None  # Global variable for the screen manager
 
-
-screen_manager = None
+# CannonApp class inherits from App and represents the main application
 class CannonApp(App):
     def build(self):
-        self.screen_manager = ScreenManager(transition=RiseInTransition(duration = 0.3))
+        # Create a ScreenManager with a transition effect
+        self.screen_manager = ScreenManager(transition=RiseInTransition(duration=0.3))
         global screen_manager
         screen_manager = self.screen_manager
 
+        # Create instances of the different screens
         main_menu = MainMenu(name='main_menu')
         game_screen = Screen(name='cannon_game')
         self.cannon_game = CannonGame()
-        levels = Levels(name = 'levels')
-        armory = Armory(name = 'armory')
+        levels = Levels(name='levels')
         game_over = Game_over(name='game_over')
         game_win = Game_win(name='game_win')
         get_username = WriteUsername(name="get_username")
-        halloffame = HallOfFame(name= "hall_of_fame")
+        halloffame = HallOfFame(name="hall_of_fame")
 
+        # Add the CannonGame widget to the game_screen
         game_screen.add_widget(self.cannon_game)
+
+        # Add all the screens to the screen manager
         self.screen_manager.add_widget(main_menu)
         self.screen_manager.add_widget(levels)
         self.screen_manager.add_widget(game_screen)
-        self.screen_manager.add_widget(armory)
         self.screen_manager.add_widget(game_over)
         self.screen_manager.add_widget(game_win)
         self.screen_manager.add_widget(get_username)
         self.screen_manager.add_widget(halloffame)
 
-        # Schedule the update method of the CannonGame instance added to the game_screen
+        # Schedule the update method of the CannonGame instance to be called at the specified FPS
         Clock.schedule_interval(self.cannon_game.update, 1 / self.cannon_game.fps)
 
-        return self.screen_manager
+        return self.screen_manager  # Return the screen manager as the root widget
 
-    
-
-
+# Main entry point for the application
 if __name__ == '__main__':
-    app = CannonApp()
-    app.run()
-    
+    app = CannonApp()  # Create an instance of the CannonApp
+    app.run()  # Run the application
+
